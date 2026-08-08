@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Halozy",
+  "description": "Teman curhat digital yang aman, privat (End-to-End Encrypted), offline-first, dilengkapi mood tracker dan sentiment analysis dalam Bahasa Indonesia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

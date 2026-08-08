@@ -1,0 +1,311 @@
+export const RESPONSES: Record<string, any> = {
+  "crisis": {
+    "summaryQuote": "Kami mendengar betapa beratnya bebanmu mendalam saat ini. Tolong ketahuilah bahwa jiwamu teramat berharga.",
+    "summaryQuotes": [
+      "Kami mendengar betapa beratnya bebanmu mendalam saat ini. Tolong ketahuilah bahwa jiwamu teramat berharga.",
+      "Masa gelap ini mungkin terasa abadi, tapi tolong bertahanlah. Hari esok masih menyimpan harapan untukmu.",
+      "Kamu tidak perlu berjuang sendirian saat beban ini terlalu berat. Izinkan orang lain membantumu hari ini."
+    ],
+    "suggestions": [
+      "🚨 SEGERA Hubungi Layanan Kemenkes SEJIWA di Hotline 119 (lalu pilih Tekan 8) - Bebas biaya, aktif 24 jam.",
+      "Hubungi yayasanpulih.org melalui WhatsApp +62 811-8436-633 untuk pendampingan konselor profesional.",
+      "Minta bantuan orang terdekat Anda atau segera kunjungi Instalasi Gawat Darurat (IGD) rumah sakit terdekat untuk tempat perlindungan fisik."
+    ],
+    "suggestionPool": [
+      "🚨 SEGERA Hubungi Layanan Kemenkes SEJIWA di Hotline 119 (lalu pilih Tekan 8) - Bebas biaya, aktif 24 jam.",
+      "Hubungi yayasanpulih.org melalui WhatsApp +62 811-8436-633 untuk pendampingan konselor profesional.",
+      "Minta bantuan orang terdekat Anda atau segera kunjungi Instalasi Gawat Darurat (IGD) rumah sakit terdekat untuk tempat perlindungan fisik.",
+      "Berjanjilah pada diri sendiri untuk menunda tindakan apapun selama 24 jam ke depan.",
+      "Jauhkan dirimu dari benda-benda tajam atau alat yang berpotensi membahayakan."
+    ]
+  },
+  "anxiety": {
+    "summaryQuote": "Pikiranmu sedang berlari kencang menerka skenario masa depan, bernapaslah perlahan.",
+    "summaryQuotes": [
+      "Pikiranmu sedang berlari kencang menerka skenario masa depan, bernapaslah perlahan.",
+      "Kecemasan seringkali membesar-besarkan sesuatu yang belum tentu terjadi. Kembalilah ke masa kini.",
+      "Takut dan gelisah adalah respon normal tubuhmu. Izinkan dirimu merasa tidak baik-baik saja sejenak."
+    ],
+    "suggestions": [
+      "Lakukan teknik pernapasan kotak: Tarik napas 4 detik, tahan 4 detik, hembuskan 4 detik, lalu kosongkan 4 detik.",
+      "Saring pikiranmu: Mana yang benar-benar bisa kamu kontrol saat ini, dan mana yang sepenuhnya di luar kendalimu.",
+      "Kurangi konsumsi kopi atau layar media sosial sementara agar denyut saraf mereda."
+    ],
+    "suggestionPool": [
+      "Lakukan teknik pernapasan kotak: Tarik napas 4 detik, tahan 4 detik, hembuskan 4 detik, lalu kosongkan 4 detik.",
+      "Saring pikiranmu: Mana yang benar-benar bisa kamu kontrol saat ini, dan mana yang sepenuhnya di luar kendalimu.",
+      "Kurangi konsumsi kopi atau layar media sosial sementara agar denyut saraf mereda.",
+      "Cobalah teknik 'Grounding' 5-4-3-2-1: Sebutkan 5 benda yang kamu lihat, 4 yang bisa kamu sentuh, 3 yang kamu dengar, 2 yang bisa kamu cium, dan 1 yang bisa dikecap.",
+      "Tuliskan apa yang kamu cemaskan di selembar kertas, lalu remas dan buang sebagai simbol pelepasan.",
+      "Basuh wajahmu dengan air dingin untuk meredakan saraf vagus dan menurunkan ritme jantung."
+    ]
+  },
+  "burnout": {
+    "summaryQuote": "Tubuh dan jiwamu sedang mengirim sinyal kuat bahwa kapasitas energimu sudah di ambang batas harian.",
+    "summaryQuotes": [
+      "Tubuh dan jiwamu sedang mengirim sinyal kuat bahwa kapasitas energimu sudah di ambang batas harian.",
+      "Produktivitas bukanlah ukuran nilai dirimu. Istirahat adalah hak dasar, bukan hadiah.",
+      "Kelelahan ekstrem ini adalah tanda bahwa kamu sudah berjuang terlalu keras. Saatnya merawat dirimu sendiri."
+    ],
+    "suggestions": [
+      "Ambil waktu istirahat mikro (micro-break) 5-10 menit tanpa membuka ponsel atau memikirkan pekerjaan.",
+      "Terapkan Pomodoro: Kerjakan sesuatu selama 250 menit, lalu istirahatlah total selama 5 menit tanpa kompromi.",
+      "Beri dirimu izin untuk berkata 'tidak' pada beban tambahan di luar batas kemampuanmu hari ini."
+    ],
+    "suggestionPool": [
+      "Ambil waktu istirahat mikro (micro-break) 5-10 menit tanpa membuka ponsel atau memikirkan pekerjaan.",
+      "Terapkan Pomodoro: Kerjakan sesuatu selama 25 menit, lalu istirahatlah total selama 5 menit tanpa kompromi.",
+      "Beri dirimu izin untuk berkata 'tidak' pada beban tambahan di luar batas kemampuanmu hari ini.",
+      "Matikan notifikasi pekerjaan setelah jam kerja selesai untuk membangun batasan yang sehat.",
+      "Lakukan peregangan tubuh ringan atau jalan santai selama 15 menit untuk melepaskan ketegangan otot.",
+      "Tulis daftar 'Apa yang sudah saya selesaikan' alih-alih fokus pada 'Apa yang belum selesai'."
+    ]
+  },
+  "sadness": {
+    "summaryQuote": "Awan kelabu yang sedang menggelayut di hatimu bertengger dengan valid. Menangis bukanlah tanda kelemahan.",
+    "summaryQuotes": [
+      "Awan kelabu yang sedang menggelayut di hatimu bertengger dengan valid. Menangis bukanlah tanda kelemahan.",
+      "Ada ruang yang luas untuk kesedihanmu. Tidak perlu memaksakan diri untuk segera tersenyum.",
+      "Kesedihanmu adalah bahasa cintamu yang kehilangan tempat berlabuh. Rasakanlah dengan perlahan."
+    ],
+    "suggestions": [
+      "Cobalah berjalan kaki di ruang terbuka hijau dengan paparan sinar hangat matahari pagi selama 15 menit.",
+      "Hubungi satu teman baik atau anggota keluarga tepercaya sekadar mengirim sapaan sederhana.",
+      "Dengarkan kumpulan lagu instrumen yang menenangkan atau tulislah semua perasaanmu sedetail mungkin di halaman sebelah."
+    ],
+    "suggestionPool": [
+      "Cobalah berjalan kaki di ruang terbuka hijau dengan paparan sinar hangat matahari pagi selama 15 menit.",
+      "Hubungi satu teman baik atau anggota keluarga tepercaya sekadar mengirim sapaan sederhana.",
+      "Dengarkan kumpulan lagu instrumen yang menenangkan atau tulislah semua perasaanmu sedetail mungkin di halaman sebelah.",
+      "Menangislah sepuasnya jika itu membantumu lega. Air mata mengandung hormon pereda stres.",
+      "Tonton film atau video ringan yang bisa memberikan sedikit kenyamanan tanpa membebani pikiran.",
+      "Bungkus dirimu dengan selimut tebal atau peluk guling untuk mendapatkan efek 'deep pressure therapy' sederhana."
+    ]
+  },
+  "relationship": {
+    "summaryQuote": "Hubungan antarmanusia terkadang mendatangkan badai kecemasan. Menjaga batasan pribadi sangat penting.",
+    "summaryQuotes": [
+      "Hubungan antarmanusia terkadang mendatangkan badai kecemasan. Menjaga batasan pribadi sangat penting.",
+      "Konflik relasional seringkali membuka luka lama. Beri dirimu ruang untuk memproses rasa sakit ini.",
+      "Terkadang melepaskan genggaman justru membawa kedamaian. Kamu berhak berada di lingkungan yang menghargaimu."
+    ],
+    "suggestions": [
+      "Gunakan format percakapan 'I-Message' (Saya merasa ... ketika ... terjadi) untuk menghindari saling menyalahkan.",
+      "Buat batasan jarak aman (personal boundaries) sejenak jika obrolan kembali memanas.",
+      "Diskusikan dengan tenang saat suhu emosi kedua pihak sudah mereda di esok hari."
+    ],
+    "suggestionPool": [
+      "Gunakan format percakapan 'I-Message' (Saya merasa ... ketika ... terjadi) untuk menghindari saling menyalahkan.",
+      "Buat batasan jarak aman (personal boundaries) sejenak jika obrolan kembali memanas.",
+      "Diskusikan dengan tenang saat suhu emosi kedua pihak sudah mereda di esok hari.",
+      "Evaluasi kembali apakah hubungan ini lebih banyak memberimu ruang bertumbuh atau justru menahanmu.",
+      "Fokus pada kebahagiaanmu sendiri sebelum berusaha membahagiakan orang lain.",
+      "Hindari mengambil keputusan besar terkait hubunganmu saat sedang dalam emosi puncak."
+    ]
+  },
+  "academic": {
+    "summaryQuote": "Tekanan akademis terkadang menutupi keunikan potensimu yang sesungguhnya. Nilai angka tidak mendefinisikan nilai dirimu.",
+    "summaryQuotes": [
+      "Tekanan akademis terkadang menutupi keunikan potensimu yang sesungguhnya. Nilai angka tidak mendefinisikan nilai dirimu.",
+      "Perjalanan belajarmu adalah marathon, bukan lari sprint. Berjalan perlahan tidak berarti kamu gagal.",
+      "Setiap mahasiswa pernah merasa tersesat dalam studinya. Kamu sedang dalam proses menjadi, bersabarlah."
+    ],
+    "suggestions": [
+      "Pecah tugas besar atau progres skripsi menjadi target-target kecil yang realistis (misalnya, cukup menulis 1 paragraf hari ini).",
+      "Gunakan teknik Pomodoro (25 menit fokus, 5 menit istirahat penuh) agar mentalmu tidak kehabisan fokus atau jenuh.",
+      "Komunikasikan kendala bimbinganmu kepada rekan sejawat atau konselor akademik; kamu tidak harus memikul beban studi sendirian."
+    ],
+    "suggestionPool": [
+      "Pecah tugas besar atau progres skripsi menjadi target-target kecil yang realistis (misalnya, cukup menulis 1 paragraf hari ini).",
+      "Gunakan teknik Pomodoro (25 menit fokus, 5 menit istirahat penuh) agar mentalmu tidak kehabisan fokus atau jenuh.",
+      "Komunikasikan kendala bimbinganmu kepada rekan sejawat atau konselor akademik; kamu tidak harus memikul beban studi sendirian.",
+      "Ubah tempat belajarmu ke perpustakaan atau kafe yang tenang untuk menyegarkan pikiran.",
+      "Rayakan pencapaian sekecil apa pun, seperti menyelesaikan satu halaman bab atau mengirim email ke dosen.",
+      "Ingatkan dirimu bahwa kegagalan di satu mata kuliah tidak menghancurkan masa depanmu secara keseluruhan."
+    ]
+  },
+  "family": {
+    "summaryQuote": "Rumah semestinya menjadi tempat teraman, namun terkadang ia justru menjadi badai paling dingin. Batasan batinmu adalah kunci kekuatanmu.",
+    "summaryQuotes": [
+      "Rumah semestinya menjadi tempat teraman, namun terkadang ia justru menjadi badai paling dingin. Batasan batinmu adalah kunci kekuatanmu.",
+      "Luka dari keluarga adalah yang paling mendalam, tetapi kamu memiliki kekuatan untuk memutus siklus tersebut.",
+      "Kamu berhak mendefinisikan ulang arti 'keluarga' menjadi orang-orang yang tulus mendukung dan menghargaimu."
+    ],
+    "suggestions": [
+      "Saat keadaan rumah sedang memanas, demi kenyamanan emosionalmu, abaikan dorongan mendebat dan ambillah jarak dengan berada di tempat netral tepercaya sejenak.",
+      "Sadari bahwa kamu tidak bertanggung jawab penuh atas emosi atau konflik orang tuamu; fokuslah menjaga kedamaian dan kewarasan pribadimu sendiri.",
+      "Mulailah membangun jejaring penguat di luar rumah, seperti sahabat akrab atau komunitas suportif tempatmu bisa didengar secara tulus."
+    ],
+    "suggestionPool": [
+      "Saat keadaan rumah sedang memanas, abaikan dorongan mendebat dan ambillah jarak dengan berada di tempat netral tepercaya sejenak.",
+      "Sadari bahwa kamu tidak bertanggung jawab penuh atas emosi atau konflik orang tuamu; fokuslah menjaga kewarasanmu.",
+      "Mulailah membangun jejaring penguat di luar rumah, seperti sahabat akrab atau komunitas suportif.",
+      "Berlatih teknik 'Grey Rock': merespon provokasi anggota keluarga yang toxic dengan sedatar mungkin agar tidak terseret.",
+      "Ciptakan satu 'safe space' fisik di kamarmu di mana kamu bisa menenangkan diri tanpa gangguan.",
+      "Tetapkan batasan topik pembicaraan apa saja yang bersedia kamu bahas dengan keluarga untuk mencegah konflik."
+    ]
+  },
+  "anger": {
+    "summaryQuote": "Kemarahan adalah emosi pelindung yang bersuara saat keadilan dirimu merasa terusik atau terluka. Mari salurkan luapan ini dengan aman.",
+    "summaryQuotes": [
+      "Kemarahan adalah emosi pelindung yang bersuara saat keadilan dirimu merasa terusik atau terluka. Mari salurkan luapan ini dengan aman.",
+      "Amarahmu valid, namun jangan biarkan apinya membakar hal-hal baik dalam dirimu.",
+      "Di balik setiap kemarahan yang hebat, selalu ada rasa sakit yang belum terselesaikan."
+    ],
+    "suggestions": [
+      "Salurkan energi fisik dari kemarahanmu tanpa merusak: lakukan push-up, remas bantal kokoh, atau lari jarak dekat.",
+      "Terapkan jeda 10 detik sebelum membalas pemicu amarah: fokus menghitung mundur perlahan sembari mengembuskan napas panjang.",
+      "Gunakan journaling ekspresif: tuangkan amarahmu sekasar mungkin di sebuah kertas coretan tanpa filter, lalu robek/bakar kertas itu demi pelepasan beban."
+    ],
+    "suggestionPool": [
+      "Salurkan energi fisik dari kemarahanmu tanpa merusak: lakukan push-up, remas bantal kokoh, atau lari jarak dekat.",
+      "Terapkan jeda 10 detik sebelum membalas pemicu amarah: fokus menghitung mundur perlahan sembari mengembuskan napas panjang.",
+      "Gunakan journaling ekspresif: tuangkan amarahmu sekasar mungkin di sebuah kertas coretan tanpa filter, lalu robek/bakar kertas itu.",
+      "Lakukan teknik pelepasan tegangan progresif: kepalkan tangan sekuat-kuatnya lalu lepaskan secara perlahan.",
+      "Minum segelas air es dingin atau cuci tangan dengan air mengalir untuk menurunkan suhu tubuh yang memanas.",
+      "Visualisasikan amarahmu sebagai balon udara yang perlahan terbang menjauh dari kepalamu."
+    ]
+  },
+  "grief": {
+    "summaryQuote": "Rasa duka yang menghunjam adalah bukti betapa indahnya rasa cinta yang pernah terpaut. Berikan air matamu izin penuh untuk mengalir.",
+    "summaryQuotes": [
+      "Rasa duka yang menghunjam adalah bukti betapa indahnya rasa cinta yang pernah terpaut. Berikan air matamu izin penuh untuk mengalir.",
+      "Kehilangan adalah bagian terpahit dari mencintai. Jangan paksakan dirimu untuk segera pulih.",
+      "Kedukaan tidak memiliki tenggat waktu. Biarkan setiap lapisannya memelukmu hingga kamu siap merelakan."
+    ],
+    "suggestions": [
+      "Beri dirimu ruang penuh untuk menangis dan bersedih alami; proses berkabung membutuhkan kesabaran luar biasa dan tidak bisa dipaksakan cepat rampung.",
+      "Lakukan ritual kecil untuk mengenang kenangan indah bersama, seperti menulis surat ungkapan hati untuknya, memeluk peninggalannya, atau berbagi pada sesama.",
+      "Fokuslah menjaga ketahanan fisik dasar Anda terlebih dahulu (minum air hangat atau sup hangat) untuk memperkuat ketabahan emosional."
+    ],
+    "suggestionPool": [
+      "Beri dirimu ruang penuh untuk menangis dan bersedih alami; proses berkabung membutuhkan kesabaran luar biasa.",
+      "Lakukan ritual kecil untuk mengenang kenangan indah bersama, seperti menulis surat ungkapan hati untuknya atau memeluk peninggalannya.",
+      "Fokuslah menjaga ketahanan fisik dasar Anda terlebih dahulu (minum air hangat atau sup hangat) untuk memperkuat ketabahan emosional.",
+      "Bicarakan kenangan tentang sosok yang pergi dengan seseorang yang bersedia mendengar tanpa menghakimi.",
+      "Sadari bahwa kedukaan bisa datang dalam bentuk gelombang; kadang tenang, kadang sangat menghancurkan. Ikuti saja arusnya.",
+      "Buatlah jurnal kecil khusus untuk mendokumentasikan rasa rindumu padanya."
+    ]
+  },
+  "selfesteem": {
+    "summaryQuote": "Perjalanan hidup orang lain bukanlah sebuah standar baku untuk menghakimi langkahmu. Keberadaan dan proses belajarmu amat berharga.",
+    "summaryQuotes": [
+      "Perjalanan hidup orang lain bukanlah sebuah standar baku untuk menghakimi langkahmu. Keberadaan dan proses belajarmu amat berharga.",
+      "Kelemahanmu hanyalah sebagian kecil dari dirimu. Ada banyak keindahan dalam ketidaksempurnaanmu.",
+      "Kamu lebih berharga dari sekadar pencapaian, angka timbangan, atau standar sosial yang semu."
+    ],
+    "suggestions": [
+      "Batasi/diet penggunaan media sosial selama beberapa hari ke depan guna mengurangi asupan perbandingan tak sehat dengan kehidupan luar biasa orang lain.",
+      "Tuliskan minimal 3 hal kecil yang patut diapresiasi dari dirimu hari ini (misal: tetap bertahan berjuang, mandi tepat waktu, berperilaku tulus).",
+      "Gunakan afirmasi di depan cermin pagi hari: 'Aku berjalan dengan ritme terbaikku sendiri. Aku bertumbuh utuh melampaui segala insecure-ku.'"
+    ],
+    "suggestionPool": [
+      "Batasi/diet penggunaan media sosial selama beberapa hari ke depan guna mengurangi asupan perbandingan tak sehat.",
+      "Tuliskan minimal 3 hal kecil yang patut diapresiasi dari dirimu hari ini.",
+      "Gunakan afirmasi di depan cermin pagi hari: 'Aku berjalan dengan ritme terbaikku sendiri. Aku bertumbuh utuh melampaui segala insecure-ku.'",
+      "Kumpulkan komentar positif atau pujian yang pernah orang berikan padamu di satu folder/buku untuk dibaca ulang.",
+      "Latihlah 'self-compassion': Berbicaralah pada dirimu sendiri layaknya kamu sedang menasihati sahabat yang sedang terpuruk.",
+      "Fokuslah merayakan progres sekecil apa pun, bukan sekadar menuntut kesempurnaan akhir."
+    ]
+  },
+  "positive": {
+    "summaryQuote": "Luar biasa! Energi damai serta perasaan lapang dada ini adalah berkah berharga bagi jiwamu.",
+    "suggestions": [
+      "Tuliskan peristiwa bahagia ini dalam catatan memomu sebagai pengingat kekuatan batinmu di masa depan.",
+      "Bagikan sepotong senyuman tulus atau apresiasi kecil kepada orang-orang di sekitarmu hari ini.",
+      "Biarkan rasa syukur ini meresap ke seluruh tubuhmu agar ketahanan mentalmu semakin tebal."
+    ]
+  },
+  "financial": {
+    "summaryQuote": "Ketidakpastian finansial memang sangat menguras pikiran. Ingatlah bahwa nilai dirimu tidak diukur dari angka di rekening.",
+    "summaryQuotes": [
+      "Ketidakpastian finansial memang sangat menguras pikiran. Ingatlah bahwa nilai dirimu tidak diukur dari angka di rekening.",
+      "Badai keuangan ini menakutkan, tapi kamu memiliki resiliensi untuk melewatinya selangkah demi selangkah.",
+      "Stres finansial sangat membebani pundakmu. Tidak apa-apa merasa kewalahan, yang terpenting adalah menyusun strategi kecil."
+    ],
+    "suggestions": [
+      "Buatlah rincian pengeluaran prioritas bulan ini untuk melihat peta keuanganmu dengan lebih jelas.",
+      "Jika terjerat hutang/pinjol, carilah bantuan restrukturisasi atau bicarakan dengan keluarga tepercaya, jangan dihadapi sendirian.",
+      "Fokus pada hal-hal yang bisa kamu kontrol hari ini dan kurangi paparan gaya hidup mewah di media sosial."
+    ],
+    "suggestionPool": [
+      "Buatlah rincian pengeluaran prioritas bulan ini untuk melihat peta keuanganmu dengan lebih jelas.",
+      "Jika terjerat hutang/pinjol, carilah bantuan restrukturisasi atau bicarakan dengan keluarga tepercaya, jangan dihadapi sendirian.",
+      "Fokus pada hal-hal yang bisa kamu kontrol hari ini dan kurangi paparan gaya hidup mewah di media sosial.",
+      "Batasi impuls belanja dengan aturan 'tunggu 48 jam' sebelum membeli barang non-esensial.",
+      "Catat sekecil apa pun pemasukan dan pengeluaran agar kamu mendapatkan rasa kendali (sense of control).",
+      "Sisihkan waktu 15 menit sehari khusus untuk mengevaluasi keuangan, lalu tutup buku dan berhenti memikirkannya di sisa hari."
+    ]
+  },
+  "physical": {
+    "summaryQuote": "Kondisi fisik yang menurun sangat wajar memengaruhi suasana hatimu. Tubuhmu sedang meminta waktu untuk jeda.",
+    "summaryQuotes": [
+      "Kondisi fisik yang menurun sangat wajar memengaruhi suasana hatimu. Tubuhmu sedang meminta waktu untuk jeda.",
+      "Sakit fisik adalah cara tubuhmu berkomunikasi bahwa ia butuh dirawat. Dengarkan sinyalnya tanpa rasa bersalah.",
+      "Kelelahan badan ini tidak membuatmu menjadi beban. Kamu berhak untuk dirawat dan istirahat total."
+    ],
+    "suggestions": [
+      "Pastikan kamu mendapat asupan cairan dan nutrisi yang cukup, meski hanya sedikit.",
+      "Istirahatkan tubuh sepenuhnya, tinggalkan sejenak urusan pekerjaan atau tugas jika memungkinkan.",
+      "Bila sakit berlanjut, jangan ragu untuk memeriksakan diri ke fasilitas kesehatan terdekat."
+    ],
+    "suggestionPool": [
+      "Pastikan kamu mendapat asupan cairan dan nutrisi yang cukup, meski hanya sedikit.",
+      "Istirahatkan tubuh sepenuhnya, tinggalkan sejenak urusan pekerjaan atau tugas jika memungkinkan.",
+      "Bila sakit berlanjut, jangan ragu untuk memeriksakan diri ke fasilitas kesehatan terdekat.",
+      "Fokus pada penyembuhan tanpa membebani pikiran dengan pekerjaan yang tertunda.",
+      "Lakukan peregangan sangat ringan di tempat tidur untuk memperlancar sirkulasi darah, jika memungkinkan.",
+      "Kurangi screen-time (menatap layar) agar matamu bisa beristirahat penuh dan kualitas tidurmu meningkat."
+    ]
+  },
+  "neutral": {
+    "summaryQuote": "Hari yang berjalan biasa saja juga merupakan sebuah ritme kehidupan yang patut dihargai.",
+    "suggestions": [
+      "Amati satu hal kecil yang menarik perhatianmu hari ini, entah itu cuaca atau makanan.",
+      "Tarik napas panjang, sadari bahwa tidak setiap hari harus dipenuhi kejadian besar.",
+      "Lakukan satu hobi ringan yang membuat pikiranmu rileks."
+    ]
+  },
+  "existential": {
+    "summaryQuote": "Mempertanyakan makna hidup adalah tanda bahwa batinmu sedang tumbuh dan mencari pijakan yang lebih dalam.",
+    "summaryQuotes": [
+      "Mempertanyakan makna hidup adalah tanda bahwa batinmu sedang tumbuh dan mencari pijakan yang lebih dalam.",
+      "Perasaan hampa dan tersesat seringkali menjadi gerbang menuju versi dirimu yang lebih bermakna.",
+      "Tidak apa-apa jika hari ini kamu tidak tahu kemana arah hidupmu. Berjalanlah meski pelan."
+    ],
+    "suggestions": [
+      "Jangan terburu-buru mencari satu jawaban besar; hiduplah satu hari demi satu hari.",
+      "Coba baca buku filsafat ringan atau dengarkan podcast tentang pencarian makna.",
+      "Temukan makna dalam tindakan kecil hari ini, entah itu membantu orang lain atau merawat tanaman."
+    ],
+    "suggestionPool": [
+      "Jangan terburu-buru mencari satu jawaban besar; hiduplah satu hari demi satu hari.",
+      "Coba baca buku filsafat ringan atau dengarkan podcast tentang pencarian makna.",
+      "Temukan makna dalam tindakan kecil hari ini, entah itu membantu orang lain atau merawat tanaman.",
+      "Jelajahi minat baru tanpa tekanan untuk harus mahir di bidang tersebut.",
+      "Ingatlah bahwa makna hidup tidak harus satu tujuan statis, ia bisa berubah-ubah di setiap fase kehidupanmu.",
+      "Berhentilah membandingkan 'timeline' kesuksesanmu dengan orang lain. Tiap bunga mekar di musimnya sendiri."
+    ]
+  },
+  "addiction": {
+    "summaryQuote": "Mengakui bahwa kamu sedang berjuang melawan kecanduan adalah langkah pertama yang sangat berani menuju pemulihan.",
+    "summaryQuotes": [
+      "Mengakui bahwa kamu sedang berjuang melawan kecanduan adalah langkah pertama yang sangat berani menuju pemulihan.",
+      "Setiap keinginan (craving) hanyalah gelombang yang datang lalu pergi. Kamu lebih kuat dari dorongan itu.",
+      "Jalan menuju pemulihan jarang sekali lurus. Jangan hukum dirimu atas kemunduran kecil."
+    ],
+    "suggestions": [
+      "Jangan melawan sendirian. Carilah dukungan dari grup pemulihan atau konselor adiksi profesional.",
+      "Hapus atau jauhi pemicu utamamu (trigger) saat ini juga, entah itu aplikasi, kontak, atau lingkungan tertentu.",
+      "Maafkan dirimu jika hari ini kamu terpeleset (relapse). Besok adalah kesempatan baru untuk bersih kembali."
+    ],
+    "suggestionPool": [
+      "Jangan melawan sendirian. Carilah dukungan dari grup pemulihan atau konselor adiksi profesional.",
+      "Hapus atau jauhi pemicu utamamu (trigger) saat ini juga, entah itu aplikasi, kontak, atau lingkungan tertentu.",
+      "Maafkan dirimu jika hari ini kamu terpeleset (relapse). Besok adalah kesempatan baru untuk bersih kembali.",
+      "Terapkan metode 'Urge Surfing': amati dorongan candu tersebut seperti ombak tanpa melawannya, biarkan ia berlalu dengan sendirinya.",
+      "Sibukkan tangan atau pikiranmu dengan aktivitas fisik intensif saat dorongan itu muncul, seperti berlari atau bersih-bersih.",
+      "Beri dirimu 'reward' kecil yang sehat untuk setiap 24 jam berhasil bersih dari kecanduan."
+    ]
+  }
+};
