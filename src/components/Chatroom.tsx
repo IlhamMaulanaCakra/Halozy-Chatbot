@@ -351,8 +351,11 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
     return filteredCandidates.slice(0, 12);
   };
 
+  const MAX_MESSAGE_LENGTH = 2000;
+
   const handleSendMessage = async (textToSend: string) => {
     if (!textToSend.trim() || loading) return;
+    if (textToSend.length > MAX_MESSAGE_LENGTH) return;
 
     const userText = textToSend;
     setInputText("");
@@ -456,9 +459,18 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
 
   const onSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || inputText.length > MAX_MESSAGE_LENGTH) return;
     handleSendMessage(inputText);
   };
+
+  const charCount = inputText.length;
+  const charLimitExceeded = charCount > MAX_MESSAGE_LENGTH;
+  const charCountColor =
+    charCount > MAX_MESSAGE_LENGTH
+      ? "text-rose-500 font-bold"
+      : charCount > MAX_MESSAGE_LENGTH * 0.85
+      ? "text-amber-500 font-semibold"
+      : "text-slate-400";
 
   const activeStarters = getDynamicStarters();
 
@@ -664,23 +676,38 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
             </button>
           </div>
         ) : (
-          <form onSubmit={onSubmitForm} className="flex gap-2">
+          <form onSubmit={onSubmitForm} className="flex flex-col gap-1.5">
+            <div className="flex gap-2">
             <input
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               disabled={loading}
               placeholder="Ketik curahan hatimu di sini..."
-              className="flex-1 bg-slate-50/60 dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900 focus:bg-white dark:focus:bg-slate-800 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-teal-600 dark:focus:ring-teal-500 transition-all font-sans"
+              maxLength={MAX_MESSAGE_LENGTH + 50}
+              className={`flex-1 bg-slate-50/60 dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900 focus:bg-white dark:focus:bg-slate-800 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 border rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 transition-all font-sans ${
+                charLimitExceeded
+                  ? "border-rose-400 dark:border-rose-600 focus:ring-rose-500"
+                  : "border-slate-200 dark:border-slate-700 focus:ring-teal-600 dark:focus:ring-teal-500"
+              }`}
             />
             <button
               type="submit"
-              disabled={loading || !inputText.trim()}
+              disabled={loading || !inputText.trim() || charLimitExceeded}
               className="bg-teal-700 dark:bg-teal-600 hover:bg-teal-800 dark:hover:bg-teal-700 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white rounded-xl px-4 py-2 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer font-sans"
             >
               <Send className="w-3.5 h-3.5" />
               Kirim
             </button>
+            </div>
+            {charCount > 0 && (
+              <div className={`text-right text-[10px] pr-1 transition-colors ${charCountColor}`}>
+                {charCount}/{MAX_MESSAGE_LENGTH}
+                {charLimitExceeded && (
+                  <span className="ml-1.5">— Pesan terlalu panjang</span>
+                )}
+              </div>
+            )}
           </form>
         )}
       </div>

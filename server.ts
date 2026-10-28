@@ -10,6 +10,11 @@ import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 
+// --- SECURITY: strip HTML tags from user input before passing to LLM ---
+function stripHtml(input: string): string {
+  return input.replace(/<[^>]*>/g, "").trim();
+}
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -31,10 +36,58 @@ const ai = new GoogleGenAI({
 });
 
 const app = express();
+
+const isProduction = process.env.NODE_ENV === "production";
+
+// FIND-01 FIX: Enable Content-Security-Policy via Helmet (Environment-aware for Dev vs Production)
 app.use(helmet({
-  contentSecurityPolicy: false, // Since this is a SPA, we might need relaxed CSP or configure it properly.
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: isProduction
+        ? ["'self'"]
+        : ["'self'", "'unsafe-inline'"], // unsafe-inline required for Vite HMR in dev
+      styleSrc: isProduction
+        ? ["'self'"]
+        : ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"], // Wildcard 'https:' removed to prevent CSP bypass
+      connectSrc: isProduction
+        ? ["'self'"]
+        : ["'self'", "ws:", "wss:"], // WebSocket scheme restricted to development mode
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: isProduction ? [] : null,
+    },
+  },
+  crossOriginEmbedderPolicy: isProduction,
 }));
-app.use(express.json());
+
+// FIND-05 FIX: Explicit CORS policy — only allow same origin
+const allowedOrigin = process.env.APP_URL || "http://localhost:3000";
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin === allowedOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Credentials", "false");
+  }
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
+// FIND-03 FIX: Limit JSON body size to 32kb to prevent resource exhaustion
+app.use(express.json({ limit: "32kb" }));
+
+// FIND-06 FIX: Explicitly block direct access to the database file
+app.get("/backups_db.json", (_req, res) => {
+  res.status(403).json({ error: "Forbidden" });
+});
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -133,8 +186,19 @@ app.post("/api/chat", async (req, res) => {
       return res.status(400).json({ error: "Isi pesan tidak boleh kosong" });
     }
 
+    // FIND-03 FIX: Cap message length to prevent API quota abuse
+    if (typeof message !== "string" || message.length > 2000) {
+      return res.status(400).json({ error: "Pesan terlalu panjang. Maksimal 2000 karakter." });
+    }
+
+    // FIND-08 FIX: Strip HTML tags before passing to LLM
+    const safeMessage = stripHtml(message);
+    if (!safeMessage) {
+      return res.status(400).json({ error: "Isi pesan tidak boleh kosong" });
+    }
+
     // Strict local safety filter scan first
-    const triggerCrisis = scanForCrisis(message);
+    const triggerCrisis = scanForCrisis(safeMessage);
 
     if (triggerCrisis) {
       return res.json({
@@ -153,6 +217,14 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
+    // FIND-03 FIX: Validate and sanitize chatHistory entries
+    const safeHistory = Array.isArray(chatHistory)
+      ? chatHistory
+          .slice(-10) // max 10 entries
+          .filter((h: any) => h && typeof h.text === "string" && typeof h.role === "string")
+          .map((h: any) => ({ role: h.role, text: stripHtml(h.text.slice(0, 500)) }))
+      : [];
+
     // Map conversation history to Gemini structure
     // Gemini chat system instructions
     const systemPrompt = `Anda adalah "Ozy", sesosok AI yang menjadi teman curhat terpercaya, hangat, dan bersahabat yang dirancang khusus untuk mendengarkan keluh kesah pengguna di Indonesia dengan penuh empati.
@@ -165,20 +237,16 @@ Aturan Penting untuk Ozy:
 4. Hadirkan prinsip supportive CBT sederhana seperti membantu menyusun ulang pikiran negatif (reframing) atau latihan pernapasan/mindfulness jika mereka merasa cemas.
 5. PENTING: Anda adalah TEMAN CURHAT. Ingatkan pengguna secara halus di waktu yang tepat apabila masalah yang dihadapinya berkepanjangan bahwa mereka layak mendapatkan penanganan profesional terpercaya dari psikolog klinis atau psikiater berlisensi (seperti BincangMurni, Riliv, atau SEJIWA 119 Ext 8).`;
 
-    // Process chat history using generateContent
-    // Limit chat history context to recent 10 messages to prevent token overflow, high latency & quota burn
-    const MAX_CONTEXT = 10;
-    const truncatedHistory = Array.isArray(chatHistory) ? chatHistory.slice(-MAX_CONTEXT) : [];
-
-    const formattedContents = truncatedHistory.map((h: any) => ({
+    // Process chat history using generateContent (now sanitized above)
+    const formattedContents = safeHistory.map((h: any) => ({
       role: h.role === "user" ? "user" : "model",
       parts: [{ text: h.text }]
     }));
 
-    // Append current message
+    // Append safe current message
     formattedContents.push({
       role: "user",
-      parts: [{ text: message }]
+      parts: [{ text: safeMessage }]
     });
 
     const primaryModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
@@ -240,8 +308,16 @@ app.post("/api/sentiment", async (req, res) => {
       return res.status(400).json({ error: "Isi jurnal wajib diisi untuk melakukan analisis sentimen" });
     }
 
+    // FIND-03 FIX: Cap journal text length
+    if (typeof text !== "string" || text.length > 5000) {
+      return res.status(400).json({ error: "Teks jurnal terlalu panjang. Maksimal 5000 karakter." });
+    }
+
+    // FIND-08 FIX: Strip HTML before analysis
+    const safeText = stripHtml(text);
+
     // Safety checks
-    const triggerCrisis = scanForCrisis(text);
+    const triggerCrisis = scanForCrisis(safeText);
 
     if (!apiKey) {
       // Mocked analysis for demo
@@ -267,7 +343,7 @@ app.post("/api/sentiment", async (req, res) => {
         contents: `Lakukan analisis sentimen kesehatan mental berkualitas tinggi pada jurnal harian berbahasa Indonesia di bawah ini (tuliskan keluaran emosi dan kutipan dalam Bahasa Indonesia dengan penuh empati, kebijakan, serta objektif):
 
 ---
-${text}
+${safeText}
 ---`,
         config: {
           systemInstruction: "Anda adalah parser sentimen emosional yang ramah. Berikan analisis akurat ramah dalam Bahasa Indonesia. Jawab eksklusif dalam format JSON terstruktur sesuai skema.",
@@ -342,6 +418,9 @@ ${text}
 
 // --- 3. CLOUD SYNC BACKUP ENDPOINTS (REST API backed by local JSON storage) ---
 
+// FIND-04 FIX: Validate username format — alphanumeric, dot, underscore, dash only, 3-32 chars
+const USERNAME_REGEX = /^[a-z0-9_.\-]{3,32}$/;
+
 // Register unique user syncing account
 app.post("/api/sync/register", async (req, res) => {
   try {
@@ -350,8 +429,17 @@ app.post("/api/sync/register", async (req, res) => {
       return res.status(400).json({ error: "Username and passcode are required" });
     }
 
-    
+    // FIND-04 FIX: Validate password length
+    if (typeof password !== "string" || password.length < 6 || password.length > 128) {
+      return res.status(400).json({ error: "Password harus antara 6 hingga 128 karakter." });
+    }
+
     const cleanId = userId.trim().toLowerCase();
+
+    // FIND-04 FIX: Enforce username format
+    if (!USERNAME_REGEX.test(cleanId)) {
+      return res.status(400).json({ error: "Username hanya boleh mengandung huruf kecil, angka, titik, underscore, atau dash (3–32 karakter)." });
+    }
 
     if (db_state.users[cleanId]) {
       return res.status(400).json({ error: "This Username/ID is already claimed." });
@@ -384,8 +472,12 @@ app.post("/api/sync/login", async (req, res) => {
       return res.status(400).json({ error: "Username and passcode are required" });
     }
 
-    
     const cleanId = userId.trim().toLowerCase();
+
+    // FIND-04 FIX: Validate username format on login too
+    if (!USERNAME_REGEX.test(cleanId)) {
+      return res.status(401).json({ error: "Invalid username or passcode." });
+    }
     const user = db_state.users[cleanId];
 
     if (!user) {
