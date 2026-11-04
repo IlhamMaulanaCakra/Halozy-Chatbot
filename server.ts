@@ -20,20 +20,23 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Gemini Client
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-  console.warn("[Aura Server] Warning: GEMINI_API_KEY environment variable is not set. Chat and sentiment features will operate in demo mode.");
-}
+// Helper to lazily initialize Gemini Client (ensures process.env is read per-request in serverless)
+function getGenAIClient(): { ai: GoogleGenAI; hasKey: boolean } {
+  const rawKey = process.env.GEMINI_API_KEY || "";
+  const cleanKey = rawKey.replace(/['"]/g, "").trim();
+  const hasKey = cleanKey.length > 0 && cleanKey !== "MOCK_KEY";
 
-const ai = new GoogleGenAI({
-  apiKey: apiKey || "MOCK_KEY",
-  httpOptions: {
-    headers: {
-      "User-Agent": "aistudio-build",
+  const client = new GoogleGenAI({
+    apiKey: hasKey ? cleanKey : "MOCK_KEY",
+    httpOptions: {
+      headers: {
+        "User-Agent": "aistudio-build",
+      },
     },
-  },
-});
+  });
+
+  return { ai: client, hasKey };
+}
 
 const app = express();
 
@@ -259,7 +262,9 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    if (!apiKey) {
+    const { ai, hasKey } = getGenAIClient();
+
+    if (!hasKey) {
       // Return a demo response
       return res.json({
         text: "Terima kasih banyak sudah berbagi kisah denganku. Saat ini aku berjalan dalam Mode Demo karena API Key belum terpasang di server, tetapi dalam sistem penuh aku adalah Ozy, teman curhat setiamu. Bagaimana kabarmu hari ini?",
@@ -371,7 +376,9 @@ app.post("/api/sentiment", async (req, res) => {
     // Safety checks
     const triggerCrisis = scanForCrisis(safeText);
 
-    if (!apiKey) {
+    const { ai, hasKey } = getGenAIClient();
+
+    if (!hasKey) {
       // Mocked analysis for demo
       return res.json({
         sentimentScore: triggerCrisis ? 1 : 6,
