@@ -65,16 +65,26 @@ app.use(helmet({
   crossOriginEmbedderPolicy: isProduction,
 }));
 
-// FIND-05 FIX: Explicit CORS policy — only allow same origin
-const allowedOrigin = process.env.APP_URL || "http://localhost:3000";
+// FIND-05 FIX: Dynamic CORS policy — allows local development and any *.vercel.app domain
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin === allowedOrigin) {
-    res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  const configuredOrigin = process.env.APP_URL;
+
+  const isAllowedOrigin =
+    !origin || // Same-origin request
+    origin === configuredOrigin ||
+    origin === "http://localhost:3000" ||
+    origin === "http://localhost:5173" ||
+    origin === "http://127.0.0.1:3000" ||
+    /\.vercel\.app$/.test(origin); // Automatically trust deployed Vercel previews & production domains
+
+  if (origin && isAllowedOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-ID");
     res.setHeader("Access-Control-Allow-Credentials", "false");
   }
+
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
   }
@@ -595,8 +605,16 @@ app.post("/api/sync/backup", async (req, res) => {
   }
 });
 
-// Vite Middleware integration for SPA routing
+// Export app for Vercel Serverless Functions
+export default app;
+
+// Vite Middleware integration for standalone local running
 async function initServer() {
+  // If running inside Vercel serverless environment, do not start local HTTP listener
+  if (process.env.VERCEL) {
+    return;
+  }
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
