@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import { promises as fsPromises } from "fs";
 import { fileURLToPath } from "url";
-import { createServer as createViteServer } from "vite";
+// import { createServer as createViteServer } from "vite"; (dynamically imported only in local dev)
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
@@ -161,8 +161,14 @@ app.use('/api/sync/login', authLimiter);
 app.use('/api/sync/register', authLimiter);
 
 
+import os from "os";
+
 const PORT = 3000;
-const DB_FILE = path.join(__dirname, "backups_db.json");
+// In Vercel serverless functions, the root filesystem is read-only.
+// Use os.tmpdir() when deployed to Vercel to prevent crash on file read/write.
+const DB_FILE = process.env.VERCEL
+  ? path.join(os.tmpdir(), "backups_db.json")
+  : path.join(__dirname, "backups_db.json");
 
 // Simple file-backed DB for synchronization
 interface SyncedEntry {
@@ -624,17 +630,22 @@ export default app;
 
 // Vite Middleware integration for standalone local running
 async function initServer() {
-  // If running inside Vercel serverless environment, do not start local HTTP listener
+  // If running inside Vercel serverless environment, do not start local HTTP listener or Vite
   if (process.env.VERCEL) {
     return;
   }
 
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+    try {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.warn("Vite dev middleware not loaded:", e);
+    }
   } else {
     const distPath = path.join(__dirname, "dist");
     app.use(express.static(distPath));
