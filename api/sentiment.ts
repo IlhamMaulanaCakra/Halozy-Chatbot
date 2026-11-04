@@ -1,26 +1,5 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+﻿import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GoogleGenAI, Type } from "@google/genai";
-import dotenv from "dotenv";
-import { acquireGeminiQuota } from "../src/utils/geminiLimiter";
-
-dotenv.config();
-
-function getCleanApiKey(): string {
-  const rawKey =
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_API_KEY ||
-    process.env.GOOGLE_GENAI_API_KEY ||
-    process.env.VITE_GEMINI_API_KEY ||
-    process.env.VITE_API_KEY ||
-    "";
-  return rawKey.replace(/^["']|["']$/g, "").replace(/['"\r\n]/g, "").trim();
-}
-
-function resolveGeminiModel(envModel?: string): string {
-  const model = envModel?.trim();
-  if (!model) return "gemini-3.5-flash-lite";
-  return model;
-}
 
 function stripHtml(input: string): string {
   return input.replace(/<[^>]*>/g, "").trim();
@@ -63,7 +42,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const safeText = stripHtml(text);
     const triggerCrisis = scanForCrisis(safeText);
 
-    const cleanKey = getCleanApiKey();
+    const rawKey = process.env.GEMINI_API_KEY || "";
+    const cleanKey = rawKey.replace(/['"]/g, "").trim();
 
     if (!cleanKey || cleanKey === "MOCK_KEY") {
       return res.status(200).json({
@@ -77,35 +57,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Rate Limiting Protection: strictly enforce 15 RPM, 500 RPD, 240k TPM
-    const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || "127.0.0.1";
-    const sessionId = (req.headers["x-session-id"] as string) || undefined;
-    const estimatedTokens = Math.ceil((safeText.length + 800) / 3.5);
-
-    const quota = await acquireGeminiQuota({
-      ip: clientIp,
-      sessionId,
-      estimatedTokens,
-    });
-
-    res.setHeader("X-RateLimit-Limit-RPM", quota.maxRpm.toString());
-    res.setHeader("X-RateLimit-Remaining-RPM", quota.remainingRpm.toString());
-    res.setHeader("X-RateLimit-Limit-RPD", quota.maxRpd.toString());
-    res.setHeader("X-RateLimit-Remaining-RPD", quota.remainingRpd.toString());
-
-    if (!quota.allowed) {
-      res.setHeader("Retry-After", quota.retryAfter.toString());
-      return res.status(429).json({
-        error: quota.error,
-        code: "RATE_LIMIT_EXCEEDED",
-        retryAfter: quota.retryAfter,
-        currentRpm: quota.currentRpm,
-        maxRpm: quota.maxRpm,
-        currentRpd: quota.currentRpd,
-        maxRpd: quota.maxRpd,
-      });
-    }
-
     const ai = new GoogleGenAI({
       apiKey: cleanKey,
       httpOptions: {
@@ -115,7 +66,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     });
 
-    const modelName = resolveGeminiModel(process.env.GEMINI_MODEL);
+    const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 
     const response = await ai.models.generateContent({
       model: modelName,

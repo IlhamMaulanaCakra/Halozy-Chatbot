@@ -9,13 +9,6 @@ import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { acquireGeminiQuota, getGeminiQuotaStatus } from "./src/utils/geminiLimiter";
-
-function resolveGeminiModel(envModel?: string): string {
-  const model = envModel?.trim();
-  if (!model) return "gemini-3.5-flash-lite";
-  return model;
-}
 
 // --- SECURITY: strip HTML tags from user input before passing to LLM ---
 function stripHtml(input: string): string {
@@ -29,14 +22,8 @@ const __dirname = path.dirname(__filename);
 
 // Helper to lazily initialize Gemini Client (ensures process.env is read per-request in serverless)
 function getGenAIClient(): { ai: GoogleGenAI; hasKey: boolean } {
-  const rawKey =
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_API_KEY ||
-    process.env.GOOGLE_GENAI_API_KEY ||
-    process.env.VITE_GEMINI_API_KEY ||
-    process.env.VITE_API_KEY ||
-    "";
-  const cleanKey = rawKey.replace(/^["']|["']$/g, "").replace(/['"\r\n]/g, "").trim();
+  const rawKey = process.env.GEMINI_API_KEY || "";
+  const cleanKey = rawKey.replace(/['"]/g, "").trim();
   const hasKey = cleanKey.length > 0 && cleanKey !== "MOCK_KEY";
 
   const client = new GoogleGenAI({
@@ -55,14 +42,33 @@ const app = express();
 
 const isProduction = process.env.NODE_ENV === "production";
 
-// Enable security headers via Helmet without blocking iframe preview or fonts
+// FIND-01 FIX: Enable Content-Security-Policy via Helmet (Environment-aware for Dev vs Production)
 app.use(helmet({
-  contentSecurityPolicy: false,
-  frameguard: false,
-  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: isProduction
+        ? ["'self'"]
+        : ["'self'", "'unsafe-inline'"], // unsafe-inline required for Vite HMR in dev
+      styleSrc: isProduction
+        ? ["'self'"]
+        : ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"], // Wildcard 'https:' removed to prevent CSP bypass
+      connectSrc: isProduction
+        ? ["'self'"]
+        : ["'self'", "ws:", "wss:"], // WebSocket scheme restricted to development mode
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: isProduction ? [] : null,
+    },
+  },
+  crossOriginEmbedderPolicy: isProduction,
 }));
 
-// Dynamic CORS policy — allows local development, *.run.app, and preview domains
+// FIND-05 FIX: Dynamic CORS policy — allows local development and any *.vercel.app domain
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const configuredOrigin = process.env.APP_URL;
@@ -73,9 +79,7 @@ app.use((req, res, next) => {
     origin === "http://localhost:3000" ||
     origin === "http://localhost:5173" ||
     origin === "http://127.0.0.1:3000" ||
-    /\.vercel\.app$/.test(origin) ||
-    (origin && /\.run\.app$/.test(origin)) ||
-    (origin && /google\.com$/.test(origin));
+    /\.vercel\.app$/.test(origin); // Automatically trust deployed Vercel previews & production domains
 
   if (origin && isAllowedOrigin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
@@ -150,13 +154,11 @@ function sessionSoftLimiter(req: express.Request, res: express.Response, next: e
   return next();
 }
 
+app.use('/api/chat', apiLimiter);
+app.use('/api/chat', sessionSoftLimiter);
+app.use('/api/sentiment', apiLimiter);
 app.use('/api/sync/login', authLimiter);
 app.use('/api/sync/register', authLimiter);
-
-// Live quota inspection endpoint
-app.get("/api/quota", (_req, res) => {
-  res.json(getGeminiQuotaStatus());
-});
 
 
 import os from "os";
@@ -166,7 +168,7 @@ const PORT = 3000;
 // Use os.tmpdir() when deployed to Vercel to prevent crash on file read/write.
 const DB_FILE = process.env.VERCEL
   ? path.join(os.tmpdir(), "backups_db.json")
-  : path.join(process.cwd(), "backups_db.json");
+  : path.join(__dirname, "backups_db.json");
 
 // Simple file-backed DB for synchronization
 interface SyncedEntry {
@@ -277,35 +279,6 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    // Rate Limiting Protection: strictly enforce 15 RPM, 500 RPD, 240k TPM
-    const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "127.0.0.1";
-    const sessionId = (req.headers["x-session-id"] as string) || undefined;
-    const estimatedTokens = Math.ceil((safeMessage.length + 1500) / 3.5);
-
-    const quota = await acquireGeminiQuota({
-      ip: clientIp,
-      sessionId,
-      estimatedTokens,
-    });
-
-    res.setHeader("X-RateLimit-Limit-RPM", quota.maxRpm.toString());
-    res.setHeader("X-RateLimit-Remaining-RPM", quota.remainingRpm.toString());
-    res.setHeader("X-RateLimit-Limit-RPD", quota.maxRpd.toString());
-    res.setHeader("X-RateLimit-Remaining-RPD", quota.remainingRpd.toString());
-
-    if (!quota.allowed) {
-      res.setHeader("Retry-After", quota.retryAfter.toString());
-      return res.status(429).json({
-        error: quota.error,
-        code: "RATE_LIMIT_EXCEEDED",
-        retryAfter: quota.retryAfter,
-        currentRpm: quota.currentRpm,
-        maxRpm: quota.maxRpm,
-        currentRpd: quota.currentRpd,
-        maxRpd: quota.maxRpd,
-      });
-    }
-
     // FIND-03 FIX: Validate and sanitize chatHistory entries
     const safeHistory = Array.isArray(chatHistory)
       ? chatHistory
@@ -339,8 +312,8 @@ Aturan Penting untuk Ozy:
       parts: [{ text: safeMessage }]
     });
 
-    const primaryModel = resolveGeminiModel(process.env.GEMINI_MODEL);
-    const fallbackModel = "gemini-flash-lite-latest";
+    const primaryModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+    const fallbackModel = "gemini-3.5-flash-lite";
 
     let chatText = "";
     try {
@@ -431,40 +404,11 @@ app.post("/api/sentiment", async (req, res) => {
       });
     }
 
-    // Rate Limiting Protection: strictly enforce 15 RPM, 500 RPD, 240k TPM
-    const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "127.0.0.1";
-    const sessionId = (req.headers["x-session-id"] as string) || undefined;
-    const estimatedTokens = Math.ceil((safeText.length + 800) / 3.5);
-
-    const quota = await acquireGeminiQuota({
-      ip: clientIp,
-      sessionId,
-      estimatedTokens,
-    });
-
-    res.setHeader("X-RateLimit-Limit-RPM", quota.maxRpm.toString());
-    res.setHeader("X-RateLimit-Remaining-RPM", quota.remainingRpm.toString());
-    res.setHeader("X-RateLimit-Limit-RPD", quota.maxRpd.toString());
-    res.setHeader("X-RateLimit-Remaining-RPD", quota.remainingRpd.toString());
-
-    if (!quota.allowed) {
-      res.setHeader("Retry-After", quota.retryAfter.toString());
-      return res.status(429).json({
-        error: quota.error,
-        code: "RATE_LIMIT_EXCEEDED",
-        retryAfter: quota.retryAfter,
-        currentRpm: quota.currentRpm,
-        maxRpm: quota.maxRpm,
-        currentRpd: quota.currentRpd,
-        maxRpd: quota.maxRpd,
-      });
-    }
-
     let parsedResult;
     try {
       let response = null;
-      const primaryModel = resolveGeminiModel(process.env.GEMINI_MODEL);
-      const fallbackModel = "gemini-flash-lite-latest";
+      const primaryModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+      const fallbackModel = "gemini-3.5-flash-lite";
 
       const apiOptions = {
         model: primaryModel,
@@ -703,9 +647,7 @@ async function initServer() {
       console.warn("Vite dev middleware not loaded:", e);
     }
   } else {
-    const distPath = fs.existsSync(path.join(process.cwd(), "dist"))
-      ? path.join(process.cwd(), "dist")
-      : __dirname;
+    const distPath = path.join(__dirname, "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
