@@ -352,7 +352,14 @@ Aturan Penting untuk Ozy:
 
   } catch (error: any) {
     console.error("Error in /api/chat:", error);
-    res.status(500).json({ error: error.message || "Failed to generate chatbot response" });
+    res.status(500).json({
+      error: error.message || "Failed to generate chatbot response",
+      debug: {
+        name: error.name,
+        stack: isProduction ? undefined : error.stack,
+        details: error.details || error.status || "Unknown error details"
+      }
+    });
   }
 });
 
