@@ -45,13 +45,36 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         const content = event.target?.result as string;
         const importedData = JSON.parse(content);
 
-        if (importedData.chat_history) {
+        // CS-04 FIX: Validate schema before writing to storage.
+        // chat_history must be an array; settings must be a plain object (not array/null).
+        const KNOWN_SETTING_KEYS: (string)[] = [
+          "profanityFilter","soundEffects","largeText","backgroundAnimation",
+          "theme","showQuotes","showSuggestions","showInternalAnalysis","version"
+        ];
+
+        if (importedData.chat_history !== undefined && !Array.isArray(importedData.chat_history)) {
+          alert("Gagal memulihkan: format riwayat obrolan tidak valid.");
+          return;
+        }
+
+        if (
+          importedData.settings !== undefined && (
+            typeof importedData.settings !== "object" ||
+            importedData.settings === null ||
+            Array.isArray(importedData.settings) ||
+            Object.keys(importedData.settings).some((k) => !KNOWN_SETTING_KEYS.includes(k))
+          )
+        ) {
+          alert("Gagal memulihkan: format pengaturan tidak valid atau mengandung kunci yang tidak dikenal.");
+          return;
+        }
+
+        if (Array.isArray(importedData.chat_history)) {
           sessionStorage.setItem("ozy_chat_history", JSON.stringify(importedData.chat_history));
         }
-        
-        if (importedData.settings) {
+
+        if (importedData.settings && typeof importedData.settings === "object") {
           localStorage.setItem("halozy_settings", JSON.stringify(importedData.settings));
-          // Need to reload to apply settings context correctly, or fire custom event
         }
 
         alert("Data berhasil dipulihkan! Halaman akan dimuat ulang.");

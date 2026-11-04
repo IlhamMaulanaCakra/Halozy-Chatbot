@@ -221,6 +221,20 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
   const [crisisActive, setCrisisActive] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // LT-02 FIX: Generate a stable per-session ID so the server can enforce a per-session
+  // soft cap (30 LLM calls / 15 min) independently of the shared IP rate limit.
+  // The ID lives only in sessionStorage — it is cleared when the tab closes.
+  const sessionId = useRef<string>(
+    (() => {
+      let id = sessionStorage.getItem("ozy_session_id");
+      if (!id) {
+        id = crypto.randomUUID();
+        sessionStorage.setItem("ozy_session_id", id);
+      }
+      return id;
+    })()
+  );
+
   // Play sound effect when model replies
   useEffect(() => {
     if (settings.soundEffects && messages.length > 1) {
@@ -253,10 +267,12 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
 
   useEffect(() => {
     try {
-      // Retain max 80 messages to avoid browser QuotaExceededError
+      // CS-01 FIX: Store chat history in sessionStorage ONLY (clears on tab close).
+      // localStorage was removed — it persists indefinitely and is accessible to
+      // any same-origin JS (browser extensions etc.), which is inappropriate for
+      // sensitive mental-health conversation data.
       const capped = messages.length > 80 ? messages.slice(messages.length - 80) : messages;
       sessionStorage.setItem("ozy_chat_history", JSON.stringify(capped));
-      localStorage.setItem("ozy_chat_history", JSON.stringify(capped));
     } catch (e) {
       console.warn("Storage quota write exception handled:", e);
     }
@@ -383,7 +399,11 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
 
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // LT-02 FIX: Pass session ID so server can apply per-session soft cap
+          "X-Session-ID": sessionId.current,
+        },
         body: JSON.stringify({ message: userText, chatHistory: recentHistory }),
       });
 
