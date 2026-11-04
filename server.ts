@@ -291,8 +291,8 @@ Aturan Penting untuk Ozy:
       parts: [{ text: safeMessage }]
     });
 
-    const primaryModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-    const fallbackModel = "gemini-1.5-flash";
+    const primaryModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+    const fallbackModel = "gemini-3.5-flash-lite";
 
     let chatText = "";
     try {
@@ -377,8 +377,8 @@ app.post("/api/sentiment", async (req, res) => {
     let parsedResult;
     try {
       let response = null;
-      const primaryModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-      const fallbackModel = "gemini-1.5-flash";
+      const primaryModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+      const fallbackModel = "gemini-3.5-flash-lite";
 
       const apiOptions = {
         model: primaryModel,
