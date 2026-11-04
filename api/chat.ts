@@ -1,13 +1,24 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GoogleGenAI } from "@google/genai";
-import { acquireGeminiQuota } from "../src/utils/geminiLimiter.ts";
+import dotenv from "dotenv";
+import { acquireGeminiQuota } from "../src/utils/geminiLimiter";
+
+dotenv.config();
+
+function getCleanApiKey(): string {
+  const rawKey =
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLE_GENAI_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY ||
+    process.env.VITE_API_KEY ||
+    "";
+  return rawKey.replace(/^["']|["']$/g, "").replace(/['"\r\n]/g, "").trim();
+}
 
 function resolveGeminiModel(envModel?: string): string {
   const model = envModel?.trim();
-  if (!model) return "gemini-2.5-flash";
-  if (model.includes("3.5") || model.includes("3.0")) {
-    return "gemini-2.5-flash";
-  }
+  if (!model) return "gemini-3.5-flash-lite";
   return model;
 }
 
@@ -64,8 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const rawKey = process.env.GEMINI_API_KEY || "";
-    const cleanKey = rawKey.replace(/['"]/g, "").trim();
+    const cleanKey = getCleanApiKey();
 
     if (!cleanKey || cleanKey === "MOCK_KEY") {
       return res.status(200).json({

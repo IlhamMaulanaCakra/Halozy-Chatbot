@@ -9,14 +9,11 @@ import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { acquireGeminiQuota, getGeminiQuotaStatus } from "./src/utils/geminiLimiter.ts";
+import { acquireGeminiQuota, getGeminiQuotaStatus } from "./src/utils/geminiLimiter";
 
 function resolveGeminiModel(envModel?: string): string {
   const model = envModel?.trim();
-  if (!model) return "gemini-2.5-flash";
-  if (model.includes("3.5") || model.includes("3.0")) {
-    return "gemini-2.5-flash";
-  }
+  if (!model) return "gemini-3.5-flash-lite";
   return model;
 }
 
@@ -32,8 +29,14 @@ const __dirname = path.dirname(__filename);
 
 // Helper to lazily initialize Gemini Client (ensures process.env is read per-request in serverless)
 function getGenAIClient(): { ai: GoogleGenAI; hasKey: boolean } {
-  const rawKey = process.env.GEMINI_API_KEY || "";
-  const cleanKey = rawKey.replace(/['"]/g, "").trim();
+  const rawKey =
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLE_GENAI_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY ||
+    process.env.VITE_API_KEY ||
+    "";
+  const cleanKey = rawKey.replace(/^["']|["']$/g, "").replace(/['"\r\n]/g, "").trim();
   const hasKey = cleanKey.length > 0 && cleanKey !== "MOCK_KEY";
 
   const client = new GoogleGenAI({
@@ -337,7 +340,7 @@ Aturan Penting untuk Ozy:
     });
 
     const primaryModel = resolveGeminiModel(process.env.GEMINI_MODEL);
-    const fallbackModel = "gemini-2.5-flash";
+    const fallbackModel = "gemini-flash-lite-latest";
 
     let chatText = "";
     try {
@@ -461,7 +464,7 @@ app.post("/api/sentiment", async (req, res) => {
     try {
       let response = null;
       const primaryModel = resolveGeminiModel(process.env.GEMINI_MODEL);
-      const fallbackModel = "gemini-2.5-flash";
+      const fallbackModel = "gemini-flash-lite-latest";
 
       const apiOptions = {
         model: primaryModel,
