@@ -1,5 +1,15 @@
-﻿import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GoogleGenAI } from "@google/genai";
+import { acquireGeminiQuota } from "../src/utils/geminiLimiter.ts";
+
+function resolveGeminiModel(envModel?: string): string {
+  const model = envModel?.trim();
+  if (!model) return "gemini-2.5-flash";
+  if (model.includes("3.5") || model.includes("3.0")) {
+    return "gemini-2.5-flash";
+  }
+  return model;
+}
 
 function stripHtml(input: string): string {
   return input.replace(/<[^>]*>/g, "").trim();
@@ -65,6 +75,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // Rate Limiting Protection: strictly enforce 15 RPM, 500 RPD, 240k TPM
+    const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || "127.0.0.1";
+    const sessionId = (req.headers["x-session-id"] as string) || undefined;
+    const estimatedTokens = Math.ceil((safeMessage.length + 1500) / 3.5);
+
+    const quota = await acquireGeminiQuota({
+      ip: clientIp,
+      sessionId,
+      estimatedTokens,
+    });
+
+    res.setHeader("X-RateLimit-Limit-RPM", quota.maxRpm.toString());
+    res.setHeader("X-RateLimit-Remaining-RPM", quota.remainingRpm.toString());
+    res.setHeader("X-RateLimit-Limit-RPD", quota.maxRpd.toString());
+    res.setHeader("X-RateLimit-Remaining-RPD", quota.remainingRpd.toString());
+
+    if (!quota.allowed) {
+      res.setHeader("Retry-After", quota.retryAfter.toString());
+      return res.status(429).json({
+        error: quota.error,
+        code: "RATE_LIMIT_EXCEEDED",
+        retryAfter: quota.retryAfter,
+        currentRpm: quota.currentRpm,
+        maxRpm: quota.maxRpm,
+        currentRpd: quota.currentRpd,
+        maxRpd: quota.maxRpd,
+      });
+    }
+
     const ai = new GoogleGenAI({
       apiKey: cleanKey,
       httpOptions: {
@@ -102,7 +141,7 @@ Aturan Penting untuk Ozy:
       parts: [{ text: safeMessage }]
     });
 
-    const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+    const modelName = resolveGeminiModel(process.env.GEMINI_MODEL);
 
     const response = await ai.models.generateContent({
       model: modelName,
