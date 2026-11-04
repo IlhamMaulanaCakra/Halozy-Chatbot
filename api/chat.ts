@@ -1,5 +1,6 @@
-﻿import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GoogleGenAI } from "@google/genai";
+import { geminiRateLimiter } from "../geminiRateLimiter.ts";
 
 function stripHtml(input: string): string {
   return input.replace(/<[^>]*>/g, "").trim();
@@ -104,21 +105,47 @@ Aturan Penting untuk Ozy:
 
     const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: formattedContents,
-      config: {
-        systemInstruction: systemPrompt,
-        temperature: 0.7,
-      }
-    });
+    // Enforce Gemini Rate Limiting (RPM 15, RPD 500, TPM 250k)
+    const estimatedTokens = geminiRateLimiter.estimateTokens(formattedContents, 600);
+    const quota = geminiRateLimiter.acquire(estimatedTokens);
 
-    const chatText = response?.text || "Aku ada di sini mendengarkanmu. Boleh ceritakan sedikit lagi apa yang ada di pikiranmu?";
+    if (!quota.allowed) {
+      res.setHeader("Retry-After", quota.retryAfterSeconds || 60);
+      res.setHeader("X-RateLimit-Limit-RPM", geminiRateLimiter.MAX_RPM);
+      res.setHeader("X-RateLimit-Limit-RPD", geminiRateLimiter.MAX_RPD);
+      res.setHeader("X-RateLimit-Limit-TPM", geminiRateLimiter.MAX_TPM);
+      return res.status(429).json({
+        error: quota.message,
+        rateLimited: true,
+        limitType: quota.limitType,
+        retryAfterSeconds: quota.retryAfterSeconds,
+        stats: quota.stats,
+      });
+    }
 
-    return res.status(200).json({
-      text: chatText,
-      crisisTriggered: false
-    });
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: formattedContents,
+        config: {
+          systemInstruction: systemPrompt,
+          temperature: 0.7,
+        }
+      });
+
+      const totalTokens = response?.usageMetadata?.totalTokenCount;
+      quota.release?.(totalTokens);
+
+      const chatText = response?.text || "Aku ada di sini mendengarkanmu. Boleh ceritakan sedikit lagi apa yang ada di pikiranmu?";
+
+      return res.status(200).json({
+        text: chatText,
+        crisisTriggered: false
+      });
+    } catch (err: any) {
+      quota.release?.(undefined, true);
+      throw err;
+    }
 
   } catch (error: any) {
     console.error("Vercel Chat Function Error:", error);

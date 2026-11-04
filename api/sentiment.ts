@@ -1,5 +1,6 @@
-﻿import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GoogleGenAI, Type } from "@google/genai";
+import { geminiRateLimiter } from "../geminiRateLimiter.ts";
 
 function stripHtml(input: string): string {
   return input.replace(/<[^>]*>/g, "").trim();
@@ -68,48 +69,74 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: `Lakukan analisis sentimen kesehatan mental berkualitas tinggi pada jurnal harian berbahasa Indonesia di bawah ini (tuliskan keluaran emosi dan kutipan dalam Bahasa Indonesia dengan penuh empati, kebijakan, serta objektif):
+    // Enforce Gemini Rate Limiting (RPM 15, RPD 500, TPM 250k)
+    const estimatedTokens = geminiRateLimiter.estimateTokens(safeText, 500);
+    const quota = geminiRateLimiter.acquire(estimatedTokens);
+
+    if (!quota.allowed) {
+      res.setHeader("Retry-After", quota.retryAfterSeconds || 60);
+      res.setHeader("X-RateLimit-Limit-RPM", geminiRateLimiter.MAX_RPM);
+      res.setHeader("X-RateLimit-Limit-RPD", geminiRateLimiter.MAX_RPD);
+      res.setHeader("X-RateLimit-Limit-TPM", geminiRateLimiter.MAX_TPM);
+      return res.status(429).json({
+        error: quota.message,
+        rateLimited: true,
+        limitType: quota.limitType,
+        retryAfterSeconds: quota.retryAfterSeconds,
+        stats: quota.stats,
+      });
+    }
+
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: `Lakukan analisis sentimen kesehatan mental berkualitas tinggi pada jurnal harian berbahasa Indonesia di bawah ini (tuliskan keluaran emosi dan kutipan dalam Bahasa Indonesia dengan penuh empati, kebijakan, serta objektif):
 
 ---
 ${safeText}
 ---`,
-      config: {
-        systemInstruction: "Anda adalah parser sentimen emosional yang ramah. Berikan analisis akurat ramah dalam Bahasa Indonesia. Jawab eksklusif dalam format JSON terstruktur sesuai skema.",
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            sentimentScore: {
-              type: Type.INTEGER,
-              description: "Skor keseimbangan emosi 0-10 (0=sangat gundah/cemas/panik, 10=sangat tenang/syukur/bahagia). 5 netral biasa."
+        config: {
+          systemInstruction: "Anda adalah parser sentimen emosional yang ramah. Berikan analisis akurat ramah dalam Bahasa Indonesia. Jawab eksklusif dalam format JSON terstruktur sesuai skema.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              sentimentScore: {
+                type: Type.INTEGER,
+                description: "Skor keseimbangan emosi 0-10 (0=sangat gundah/cemas/panik, 10=sangat tenang/syukur/bahagia). 5 netral biasa."
+              },
+              primaryEmotion: {
+                type: Type.STRING,
+                description: "Emosi utama berfokus pada dinamika mental Indonesia, seperti Cemas, Sedih, Burnout, Syukur, Tenang, Dongkol, Kesepian, Overthinking, atau Lega."
+              },
+              summaryQuote: {
+                type: Type.STRING,
+                description: "Satu kalimat singkat berisi kalimat pendukung penuh kehangatan dalam bahasa Indonesia (maksimal 1 kalimat)."
+              },
+              suggestedTags: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                description: "3 tag topik terkait suasana hati."
+              },
+              requiresIntervention: {
+                type: Type.BOOLEAN,
+                description: "True jika ada keputusasaan ekstrem atau dorongan bahaya."
+              }
             },
-            primaryEmotion: {
-              type: Type.STRING,
-              description: "Emosi utama berfokus pada dinamika mental Indonesia, seperti Cemas, Sedih, Burnout, Syukur, Tenang, Dongkol, Kesepian, Overthinking, atau Lega."
-            },
-            summaryQuote: {
-              type: Type.STRING,
-              description: "Satu kalimat singkat berisi kalimat pendukung penuh kehangatan dalam bahasa Indonesia (maksimal 1 kalimat)."
-            },
-            suggestedTags: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "3 tag topik terkait suasana hati."
-            },
-            requiresIntervention: {
-              type: Type.BOOLEAN,
-              description: "True jika ada keputusasaan ekstrem atau dorongan bahaya."
-            }
-          },
-          required: ["sentimentScore", "primaryEmotion", "summaryQuote", "suggestedTags", "requiresIntervention"]
+            required: ["sentimentScore", "primaryEmotion", "summaryQuote", "suggestedTags", "requiresIntervention"]
+          }
         }
-      }
-    });
+      });
 
-    const parsedResult = JSON.parse(response.text || "{}");
-    return res.status(200).json(parsedResult);
+      const totalTokens = response?.usageMetadata?.totalTokenCount;
+      quota.release?.(totalTokens);
+
+      const parsedResult = JSON.parse(response.text || "{}");
+      return res.status(200).json(parsedResult);
+    } catch (err: any) {
+      quota.release?.(undefined, true);
+      throw err;
+    }
 
   } catch (error: any) {
     console.error("Vercel Sentiment Function Error:", error);

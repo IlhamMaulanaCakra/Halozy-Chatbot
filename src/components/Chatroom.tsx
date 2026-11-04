@@ -407,6 +407,21 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
         body: JSON.stringify({ message: userText, chatHistory: recentHistory }),
       });
 
+      if (res.status === 429) {
+        const errorJson = await res.json().catch(() => ({}));
+        const retrySec = errorJson.retryAfter || 5;
+        const limitMessage: Message = {
+          id: Math.random().toString(36).substring(7),
+          role: "model",
+          text: errorJson.error || `⚠️ Batas 15 percakapan per menit (RPM) tercapai demi perlindungan kuota. Mohon tunggu ${retrySec} detik lalu kirim kembali ya. 😊`,
+          timestamp: Date.now(),
+          svmResult: svmResult,
+        };
+        setMessages((prev) => [...prev, limitMessage]);
+        setLoading(false);
+        return;
+      }
+
       if (!res.ok) {
         throw new Error("Quota exceeded or Server Unavailable");
       }
