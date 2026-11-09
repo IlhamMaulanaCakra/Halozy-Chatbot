@@ -347,8 +347,8 @@ Aturan Penting untuk Ozy:
       });
     }
 
-    const primaryModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
-    const fallbackModel = "gemini-3.5-flash-lite";
+    const primaryModel = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+    const fallbackModel = "gemini-3.1-flash-lite";
 
     let chatText = "";
     try {
@@ -463,8 +463,8 @@ app.post("/api/sentiment", async (req, res) => {
 
     try {
       let response = null;
-      const primaryModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
-      const fallbackModel = "gemini-3.5-flash-lite";
+      const primaryModel = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+      const fallbackModel = "gemini-3.1-flash-lite";
 
       const apiOptions = {
         model: primaryModel,

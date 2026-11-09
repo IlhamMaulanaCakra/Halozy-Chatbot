@@ -211,7 +211,7 @@ Aturan Penting untuk Ozy:
       parts: [{ text: safeMessage }]
     });
 
-    const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+    const modelName = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 
     // Enforce Gemini Rate Limiting (RPM 15, RPD 500, TPM 250k)
     const estimatedTokens = geminiRateLimiter.estimateTokens(formattedContents, 600);
