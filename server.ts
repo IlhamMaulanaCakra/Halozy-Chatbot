@@ -23,7 +23,7 @@ const __dirname = path.dirname(__filename);
 
 // Helper to lazily initialize Gemini Client (ensures process.env is read per-request in serverless)
 function getGenAIClient(): { ai: GoogleGenAI; hasKey: boolean } {
-  const rawKey = process.env.GEMINI_API_KEY || "";
+  const rawKey = process.env.GEMINI_API_KEY || process.env.Halozy_API_Key || process.env.HALOZY_API_KEY || "";
   const cleanKey = rawKey.replace(/['"]/g, "").trim();
   const hasKey = cleanKey.length > 0 && cleanKey !== "MOCK_KEY";
 

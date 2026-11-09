@@ -81,7 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const safeText = stripHtml(text);
     const triggerCrisis = scanForCrisis(safeText);
 
-    const rawKey = process.env.GEMINI_API_KEY || "";
+    const rawKey = process.env.GEMINI_API_KEY || process.env.Halozy_API_Key || process.env.HALOZY_API_KEY || "";
     const cleanKey = rawKey.replace(/['"]/g, "").trim();
 
     if (!cleanKey || cleanKey === "MOCK_KEY") {
