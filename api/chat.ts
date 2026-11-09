@@ -13,8 +13,105 @@ function scanForCrisis(text: string): boolean {
   return crisisRegex.test(normalized);
 }
 
+// --- RATE LIMITER & ANTI-ABUSE ENGINE ---
+// Guard: 15 RPM, 500 RPD
+// Policy:
+// 1. Anti-spam cooldown: 2.5s between requests
+// 2. Max 6 requests / minute per client (prevents crossing 15 RPM globally)
+// 3. Max 120 requests / day per client (prevents crossing 500 RPD globally)
+
+interface ClientUsage {
+  lastRequestTime: number;
+  minuteWindowStart: number;
+  minuteCount: number;
+  dayWindowStart: number;
+  dayCount: number;
+}
+
+const clientUsageMap = new Map<string, ClientUsage>();
+const CLEANUP_INTERVAL = 10 * 60 * 1000;
+let lastCleanup = Date.now();
+
+function getClientIdentifier(req: VercelRequest): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  const ip = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : req.socket?.remoteAddress || "unknown-ip";
+  const session = (req.headers["x-session-id"] as string) || "";
+  return `${ip}:${session}`;
+}
+
+function checkRateLimit(clientId: string): { allowed: boolean; reason?: string; retryAfter?: number } {
+  const now = Date.now();
+
+  if (now - lastCleanup > CLEANUP_INTERVAL) {
+    lastCleanup = now;
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    for (const [id, usage] of clientUsageMap.entries()) {
+      if (usage.dayWindowStart < oneDayAgo) {
+        clientUsageMap.delete(id);
+      }
+    }
+  }
+
+  let usage = clientUsageMap.get(clientId);
+  if (!usage) {
+    usage = {
+      lastRequestTime: now,
+      minuteWindowStart: now,
+      minuteCount: 1,
+      dayWindowStart: now,
+      dayCount: 1,
+    };
+    clientUsageMap.set(clientId, usage);
+    return { allowed: true };
+  }
+
+  // 1. Anti-Spam Cooldown (2.5 seconds minimum gap)
+  const timeSinceLast = now - usage.lastRequestTime;
+  if (timeSinceLast < 2500) {
+    const waitSec = Math.ceil((2500 - timeSinceLast) / 1000);
+    return {
+      allowed: false,
+      reason: `Terlalu cepat! Mohon tunggu ${waitSec} detik sebelum mengirim pesan berikutnya.`,
+      retryAfter: waitSec,
+    };
+  }
+
+  // 2. Max 6 requests / minute
+  if (now - usage.minuteWindowStart < 60 * 1000) {
+    if (usage.minuteCount >= 6) {
+      const waitSec = Math.ceil((60 * 1000 - (now - usage.minuteWindowStart)) / 1000);
+      return {
+        allowed: false,
+        reason: `Batas pesan per menit tercapai (maksimal 6 pesan/menit). Mohon jeda ${waitSec} detik demi kenyamanan bersama.`,
+        retryAfter: waitSec,
+      };
+    }
+    usage.minuteCount += 1;
+  } else {
+    usage.minuteWindowStart = now;
+    usage.minuteCount = 1;
+  }
+
+  // 3. Max 120 requests / day
+  if (now - usage.dayWindowStart < 24 * 60 * 60 * 1000) {
+    if (usage.dayCount >= 120) {
+      return {
+        allowed: false,
+        reason: `Batas harian percakapan untuk sesi ini telah tercapai (120 pesan/hari). Silakan lanjutkan kembali esok hari.`,
+        retryAfter: 3600,
+      };
+    }
+    usage.dayCount += 1;
+  } else {
+    usage.dayWindowStart = now;
+    usage.dayCount = 1;
+  }
+
+  usage.lastRequestTime = now;
+  return { allowed: true };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Handle CORS
   const origin = req.headers.origin as string | undefined;
   if (origin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
@@ -28,6 +125,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
+  }
+
+  const clientId = getClientIdentifier(req);
+  const rateCheck = checkRateLimit(clientId);
+  if (!rateCheck.allowed) {
+    if (rateCheck.retryAfter) {
+      res.setHeader("Retry-After", rateCheck.retryAfter);
+    }
+    return res.status(429).json({
+      error: rateCheck.reason,
+      retryAfter: rateCheck.retryAfter,
+    });
   }
 
   try {
@@ -46,7 +155,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Isi pesan tidak boleh kosong" });
     }
 
-    // Crisis Scanner
     if (scanForCrisis(safeMessage)) {
       return res.status(200).json({
         text: "Saya sangat peduli dengan keselamatan Anda, namun sebagai sistem AI, saya bukanlah pengganti pertolongan medis krisis darurat. Ada manusia-manusia penuh empati dan berpengalaman yang siap menemani dan mendengarkan Anda tanpa penghakiman.\n\n**Segera hubungi jaringan bantuan krisis berikut:**\n- **SEJIWA (Layanan Kesehatan Jiwa Kemenkes & HIMPSI):** Hubungi **119 lalu tekan ekstensi 8** (Layanan darurat gratis & resmi 24 jam di Indonesia).\n- **Yayasan Pulih (Konseling Tepercaya):** Kirim pesan WhatsApp ke +62 811-8436-633 atau kunjungi [yayasanpulih.org](https://yayasanpulih.org).\n- **Into The Light Indonesia:** Komunitas edukasi penanganan bunuh diri dengan rujukan lengkap di [intothelightid.org](https://www.intothelightid.org).\n- **Puskesmas / Rumah Sakit Terdekat:** Jangan ragu untuk segera mampir ke Instalasi Gawat Darurat (IGD) jika Anda merasa tidak aman dengan diri sendiri.\n\nAnda tidak berjalan sendirian. Mari izinkan jiwa-jiwa empati ini menyambut dan merangkul Anda demi keselamatan bersama.",

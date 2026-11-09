@@ -103,10 +103,13 @@ app.get("/backups_db.json", (_req, res) => {
   res.status(403).json({ error: "Forbidden" });
 });
 
+// Strict RPM limiter to protect Gemini API quota (15 RPM / 500 RPD)
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: { error: "Terlalu banyak permintaan, silakan coba lagi nanti." }
+  windowMs: 60 * 1000, // 1 minute window
+  max: 6, // Max 6 requests per minute per IP
+  message: { error: "Terlalu banyak permintaan! Maksimal 6 pesan per menit untuk menjaga kuota API." },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const authLimiter = rateLimit({

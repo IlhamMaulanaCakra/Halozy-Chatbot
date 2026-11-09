@@ -13,6 +13,37 @@ function scanForCrisis(text: string): boolean {
   return crisisRegex.test(normalized);
 }
 
+// Rate Limiter for Sentiment
+const sentimentUsageMap = new Map<string, { lastRequestTime: number; count: number; windowStart: number }>();
+
+function checkSentimentRateLimit(clientId: string): { allowed: boolean; reason?: string } {
+  const now = Date.now();
+  let usage = sentimentUsageMap.get(clientId);
+  if (!usage) {
+    sentimentUsageMap.set(clientId, { lastRequestTime: now, count: 1, windowStart: now });
+    return { allowed: true };
+  }
+
+  // 3s cooldown
+  if (now - usage.lastRequestTime < 3000) {
+    return { allowed: false, reason: "Mohon tunggu 3 detik sebelum melakukan analisis sentimen lagi." };
+  }
+
+  // Max 5 per minute
+  if (now - usage.windowStart < 60 * 1000) {
+    if (usage.count >= 5) {
+      return { allowed: false, reason: "Batas analisis sentimen per menit tercapai (maksimal 5 kali/menit)." };
+    }
+    usage.count += 1;
+  } else {
+    usage.windowStart = now;
+    usage.count = 1;
+  }
+
+  usage.lastRequestTime = now;
+  return { allowed: true };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const origin = req.headers.origin as string | undefined;
   if (origin) {
@@ -27,6 +58,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
+  }
+
+  const forwarded = req.headers["x-forwarded-for"];
+  const ip = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : req.socket?.remoteAddress || "unknown-ip";
+  const rate = checkSentimentRateLimit(ip);
+  if (!rate.allowed) {
+    return res.status(429).json({ error: rate.reason });
   }
 
   try {
