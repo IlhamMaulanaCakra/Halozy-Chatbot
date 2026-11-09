@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GoogleGenAI, Type } from "@google/genai";
-import { geminiRateLimiter } from "../geminiRateLimiter";
 
 function stripHtml(input: string): string {
   return input.replace(/<[^>]*>/g, "").trim();
@@ -13,7 +12,7 @@ function scanForCrisis(text: string): boolean {
   return crisisRegex.test(normalized);
 }
 
-// Rate Limiter for Sentiment
+// In-memory sentiment rate limiter: 3s cooldown
 const sentimentUsageMap = new Map<string, { lastRequestTime: number; count: number; windowStart: number }>();
 
 function checkSentimentRateLimit(clientId: string): { allowed: boolean; reason?: string } {
@@ -24,12 +23,10 @@ function checkSentimentRateLimit(clientId: string): { allowed: boolean; reason?:
     return { allowed: true };
   }
 
-  // 3s cooldown
   if (now - usage.lastRequestTime < 3000) {
     return { allowed: false, reason: "Mohon tunggu 3 detik sebelum melakukan analisis sentimen lagi." };
   }
 
-  // Max 5 per minute
   if (now - usage.windowStart < 60 * 1000) {
     if (usage.count >= 5) {
       return { allowed: false, reason: "Batas analisis sentimen per menit tercapai (maksimal 5 kali/menit)." };
@@ -107,74 +104,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const modelName = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 
-    // Enforce Gemini Rate Limiting (RPM 15, RPD 500, TPM 250k)
-    const estimatedTokens = geminiRateLimiter.estimateTokens(safeText, 500);
-    const quota = geminiRateLimiter.acquire(estimatedTokens);
-
-    if (!quota.allowed) {
-      res.setHeader("Retry-After", quota.retryAfterSeconds || 60);
-      res.setHeader("X-RateLimit-Limit-RPM", geminiRateLimiter.MAX_RPM);
-      res.setHeader("X-RateLimit-Limit-RPD", geminiRateLimiter.MAX_RPD);
-      res.setHeader("X-RateLimit-Limit-TPM", geminiRateLimiter.MAX_TPM);
-      return res.status(429).json({
-        error: quota.message,
-        rateLimited: true,
-        limitType: quota.limitType,
-        retryAfterSeconds: quota.retryAfterSeconds,
-        stats: quota.stats,
-      });
-    }
-
-    try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: `Lakukan analisis sentimen kesehatan mental berkualitas tinggi pada jurnal harian berbahasa Indonesia di bawah ini (tuliskan keluaran emosi dan kutipan dalam Bahasa Indonesia dengan penuh empati, kebijakan, serta objektif):
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: `Lakukan analisis sentimen kesehatan mental berkualitas tinggi pada jurnal harian berbahasa Indonesia di bawah ini (tuliskan keluaran emosi dan kutipan dalam Bahasa Indonesia dengan penuh empati, kebijakan, serta objektif):
 
 ---
 ${safeText}
 ---`,
-        config: {
-          systemInstruction: "Anda adalah parser sentimen emosional yang ramah. Berikan analisis akurat ramah dalam Bahasa Indonesia. Jawab eksklusif dalam format JSON terstruktur sesuai skema.",
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              sentimentScore: {
-                type: Type.INTEGER,
-                description: "Skor keseimbangan emosi 0-10 (0=sangat gundah/cemas/panik, 10=sangat tenang/syukur/bahagia). 5 netral biasa."
-              },
-              primaryEmotion: {
-                type: Type.STRING,
-                description: "Emosi utama berfokus pada dinamika mental Indonesia, seperti Cemas, Sedih, Burnout, Syukur, Tenang, Dongkol, Kesepian, Overthinking, atau Lega."
-              },
-              summaryQuote: {
-                type: Type.STRING,
-                description: "Satu kalimat singkat berisi kalimat pendukung penuh kehangatan dalam bahasa Indonesia (maksimal 1 kalimat)."
-              },
-              suggestedTags: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description: "3 tag topik terkait suasana hati."
-              },
-              requiresIntervention: {
-                type: Type.BOOLEAN,
-                description: "True jika ada keputusasaan ekstrem atau dorongan bahaya."
-              }
+      config: {
+        systemInstruction: "Anda adalah parser sentimen emosional yang ramah. Berikan analisis akurat ramah dalam Bahasa Indonesia. Jawab eksklusif dalam format JSON terstruktur sesuai skema.",
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            sentimentScore: {
+              type: Type.INTEGER,
+              description: "Skor keseimbangan emosi 0-10 (0=sangat gundah/cemas/panik, 10=sangat tenang/syukur/bahagia). 5 netral biasa."
             },
-            required: ["sentimentScore", "primaryEmotion", "summaryQuote", "suggestedTags", "requiresIntervention"]
-          }
+            primaryEmotion: {
+              type: Type.STRING,
+              description: "Emosi utama berfokus pada dinamika mental Indonesia, seperti Cemas, Sedih, Burnout, Syukur, Tenang, Dongkol, Kesepian, Overthinking, atau Lega."
+            },
+            summaryQuote: {
+              type: Type.STRING,
+              description: "Satu kalimat singkat berisi kalimat pendukung penuh kehangatan dalam bahasa Indonesia (maksimal 1 kalimat)."
+            },
+            suggestedTags: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "3 tag topik terkait suasana hati."
+            },
+            requiresIntervention: {
+              type: Type.BOOLEAN,
+              description: "True jika ada keputusasaan ekstrem atau dorongan bahaya."
+            }
+          },
+          required: ["sentimentScore", "primaryEmotion", "summaryQuote", "suggestedTags", "requiresIntervention"]
         }
-      });
+      }
+    });
 
-      const totalTokens = response?.usageMetadata?.totalTokenCount;
-      quota.release?.(totalTokens);
-
-      const parsedResult = JSON.parse(response.text || "{}");
-      return res.status(200).json(parsedResult);
-    } catch (err: any) {
-      quota.release?.(undefined, true);
-      throw err;
-    }
+    const parsedResult = JSON.parse(response.text || "{}");
+    return res.status(200).json(parsedResult);
 
   } catch (error: any) {
     console.error("Vercel Sentiment Function Error:", error);

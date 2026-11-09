@@ -9,7 +9,6 @@ import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { geminiRateLimiter } from "./geminiRateLimiter";
 
 // --- SECURITY: strip HTML tags from user input before passing to LLM ---
 function stripHtml(input: string): string {
@@ -103,13 +102,10 @@ app.get("/backups_db.json", (_req, res) => {
   res.status(403).json({ error: "Forbidden" });
 });
 
-// Strict RPM limiter to protect Gemini API quota (15 RPM / 500 RPD)
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute window
-  max: 6, // Max 6 requests per minute per IP
-  message: { error: "Terlalu banyak permintaan! Maksimal 6 pesan per menit untuk menjaga kuota API." },
-  standardHeaders: true,
-  legacyHeaders: false,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: { error: "Terlalu banyak permintaan, silakan coba lagi nanti." }
 });
 
 const authLimiter = rateLimit({
@@ -163,19 +159,6 @@ app.use('/api/chat', sessionSoftLimiter);
 app.use('/api/sentiment', apiLimiter);
 app.use('/api/sync/login', authLimiter);
 app.use('/api/sync/register', authLimiter);
-
-// Endpoint to monitor Gemini model quota (RPM, RPD, TPM)
-app.get('/api/gemini/rate-limit-status', (_req, res) => {
-  res.json({
-    status: "ok",
-    limits: {
-      rpm: geminiRateLimiter.MAX_RPM,
-      rpd: geminiRateLimiter.MAX_RPD,
-      tpm: geminiRateLimiter.MAX_TPM,
-    },
-    stats: geminiRateLimiter.getStats()
-  });
-});
 
 
 import os from "os";
@@ -329,24 +312,6 @@ Aturan Penting untuk Ozy:
       parts: [{ text: safeMessage }]
     });
 
-    // Enforce Gemini Rate Limiting (RPM 15, RPD 500, TPM 250k) to prevent abuse and request loops
-    const estimatedTokens = geminiRateLimiter.estimateTokens(formattedContents, 600);
-    const quota = geminiRateLimiter.acquire(estimatedTokens);
-
-    if (!quota.allowed) {
-      res.setHeader("Retry-After", quota.retryAfterSeconds || 60);
-      res.setHeader("X-RateLimit-Limit-RPM", geminiRateLimiter.MAX_RPM);
-      res.setHeader("X-RateLimit-Limit-RPD", geminiRateLimiter.MAX_RPD);
-      res.setHeader("X-RateLimit-Limit-TPM", geminiRateLimiter.MAX_TPM);
-      return res.status(429).json({
-        error: quota.message,
-        rateLimited: true,
-        limitType: quota.limitType,
-        retryAfterSeconds: quota.retryAfterSeconds,
-        stats: quota.stats,
-      });
-    }
-
     const primaryModel = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
     const fallbackModel = "gemini-3.1-flash-lite";
 
@@ -380,11 +345,8 @@ Aturan Penting untuk Ozy:
         }
       }
 
-      const totalTokens = response?.usageMetadata?.totalTokenCount;
-      quota.release?.(totalTokens);
       chatText = response?.text || "Aku ada di sini mendengarkanmu. Boleh ceritakan sedikit lagi apa yang ada di pikiranmu?";
     } catch (apiError: any) {
-      quota.release?.(undefined, true);
       console.log("[Ozy Server] Gemini Chat failed gracefully, using empathetic offline fallback.");
       chatText = "Aku mendengar ceritamu, dan ketahuilah kalau kamu tidaklah sendirian. Server teman curhat saat ini sedang sangat sibuk, namun ketahuilah bahwa perasaanmu tetap valid. Ambil napas perlahan... lalu ceritakan pelan-pelan ya.";
     }
@@ -443,24 +405,6 @@ app.post("/api/sentiment", async (req, res) => {
     }
 
     let parsedResult;
-    // Enforce Gemini Rate Limiting (RPM 15, RPD 500, TPM 250k) to prevent abuse and request loops
-    const estimatedTokens = geminiRateLimiter.estimateTokens(safeText, 500);
-    const quota = geminiRateLimiter.acquire(estimatedTokens);
-
-    if (!quota.allowed) {
-      res.setHeader("Retry-After", quota.retryAfterSeconds || 60);
-      res.setHeader("X-RateLimit-Limit-RPM", geminiRateLimiter.MAX_RPM);
-      res.setHeader("X-RateLimit-Limit-RPD", geminiRateLimiter.MAX_RPD);
-      res.setHeader("X-RateLimit-Limit-TPM", geminiRateLimiter.MAX_TPM);
-      return res.status(429).json({
-        error: quota.message,
-        rateLimited: true,
-        limitType: quota.limitType,
-        retryAfterSeconds: quota.retryAfterSeconds,
-        stats: quota.stats,
-      });
-    }
-
     try {
       let response = null;
       const primaryModel = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
@@ -522,11 +466,8 @@ ${safeText}
         }
       }
 
-      const totalTokens = response?.usageMetadata?.totalTokenCount;
-      quota.release?.(totalTokens);
       parsedResult = JSON.parse(response?.text || "{}");
     } catch (apiErr) {
-      quota.release?.(undefined, true);
       console.log("[Ozy Server] Gemini Sentiment service unavailable after retry, using offline calculation fallback.");
       parsedResult = {
         sentimentScore: triggerCrisis ? 1 : 6,
