@@ -9,7 +9,7 @@ import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { geminiRateLimiter } from "./geminiRateLimiter.ts";
+import { geminiRateLimiter } from "./geminiRateLimiter";
 
 // --- SECURITY: strip HTML tags from user input before passing to LLM ---
 function stripHtml(input: string): string {

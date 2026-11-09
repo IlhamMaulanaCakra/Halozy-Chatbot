@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { GoogleGenAI } from "@google/genai";
-import { geminiRateLimiter } from "../geminiRateLimiter.ts";
+import { geminiRateLimiter } from "../geminiRateLimiter";
 
 function stripHtml(input: string): string {
   return input.replace(/<[^>]*>/g, "").trim();
