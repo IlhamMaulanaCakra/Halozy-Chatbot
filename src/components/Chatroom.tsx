@@ -195,35 +195,41 @@ const OFFLINE_RESPONSES: Record<string, string[]> = {
 
 export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: ChatroomProps) {
   const { settings } = useSettings();
-  const [messages, setMessages] = useState<Message[]>(() => {
-    try {
-      const stored = sessionStorage.getItem("ozy_chat_history");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.warn("sessionStorage read error", e);
-    }
-    return [
-      {
-        id: "welcome",
-        role: "model",
-        text: "Halo! Aku Ozy, teman curhat setiamu. Di sini adalah tempat aman untuk meluapkan penat, cemas, khawatir, atau hal bahagia apa pun yang kamu alami hari ini.\n\nYakinlah bahwa ceritamu didengar, dihargai, dan tidak akan dihakimi. Bagaimana kondisimu hari ini?",
-        timestamp: Date.now(),
-      },
-    ];
-  });
+  // NEG-07 FIX: Zero local persistence across page reloads (F5).
+  // History is kept strictly in-memory during the active session.
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "welcome",
+      role: "model",
+      text: "Halo! Aku Ozy, teman curhat setiamu. Di sini adalah tempat aman untuk meluapkan penat, cemas, khawatir, atau hal bahagia apa pun yang kamu alami hari ini.\n\nYakinlah bahwa ceritamu didengar, dihargai, dan tidak akan dihakimi. Bagaimana kondisimu hari ini?",
+      timestamp: Date.now(),
+    },
+  ]);
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
   const [crisisActive, setCrisisActive] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Clear legacy chat history storage on mount to ensure clean state
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem("ozy_chat_history");
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // POS-03 FIX: Auto-resize textarea smoothly as user types or adds newlines (Shift + Enter)
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 128)}px`;
+    }
+  }, [inputText]);
 
   // LT-02 FIX: Generate a stable per-session ID so the server can enforce a per-session
-  // soft cap (30 LLM calls / 15 min) independently of the shared IP rate limit.
-  // The ID lives only in sessionStorage — it is cleared when the tab closes.
+  // soft cap independently of the shared IP rate limit.
   const sessionId = useRef<string>(
     (() => {
       let id = sessionStorage.getItem("ozy_session_id");
@@ -264,19 +270,6 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
       }
     }
   }, [messages, settings.soundEffects]);
-
-  useEffect(() => {
-    try {
-      // CS-01 FIX: Store chat history in sessionStorage ONLY (clears on tab close).
-      // localStorage was removed — it persists indefinitely and is accessible to
-      // any same-origin JS (browser extensions etc.), which is inappropriate for
-      // sensitive mental-health conversation data.
-      const capped = messages.length > 80 ? messages.slice(messages.length - 80) : messages;
-      sessionStorage.setItem("ozy_chat_history", JSON.stringify(capped));
-    } catch (e) {
-      console.warn("Storage quota write exception handled:", e);
-    }
-  }, [messages]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -374,6 +367,19 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
     if (textToSend.length > MAX_MESSAGE_LENGTH) return;
 
     const userText = textToSend;
+
+    // NEG-06 FIX: If offline when user presses send, notify immediately and preserve typed curhatan
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const offlineNoticeMessage: Message = {
+        id: Math.random().toString(36).substring(7),
+        role: "model",
+        text: "⚠️ Koneksi internetmu sedang terputus. Mohon periksa kembali jaringan internet atau Wi-Fi kamu dan coba kirim ulang ya. Curhatanmu tetap tersimpan aman di kolom ketik.",
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, offlineNoticeMessage]);
+      return;
+    }
+
     setInputText("");
     
     // Calculate SVM Classification locally before calling any API
@@ -441,7 +447,27 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
       if (data.crisisTriggered || svmResult.requiresCounselor) {
         setCrisisActive(true);
       }
-    } catch (err) {
+    } catch (err: any) {
+      // NEG-06 FIX: Distinguish network loss from API failures.
+      // If network disconnected, restore user's typed message in input box and show clear Ozy connection alert.
+      const isNetworkDisconnected =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        (err instanceof TypeError && /failed to fetch|networkerror|load failed|network request failed/i.test(err.message || ""));
+
+      if (isNetworkDisconnected) {
+        setInputText(userText);
+        const networkErrorMessage: Message = {
+          id: Math.random().toString(36).substring(7),
+          role: "model",
+          text: "⚠️ Koneksi internetmu terputus saat mengirim pesan. Mohon periksa kembali jaringan internet atau Wi-Fi kamu dan coba kirim ulang ya. Curhatanmu tetap aman tersimpan di kolom ketik.",
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, networkErrorMessage]);
+        setLoading(false);
+        return;
+      }
+
+      // If online and API LLM fails (quota exceeded, 500 status), fallback to local SVM classifier response
       console.warn("API Chat got error or was throttled, using local SVM classifier fallback:", err);
       
       // Soothing local offline backup response matching the specific detected stress category
@@ -561,7 +587,7 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
             className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start animate-fade-in"}`}
           >
             <div
-              className={`max-w-[90%] rounded-2xl px-4 py-3 text-xs inline-block leading-relaxed ${
+              className={`max-w-[90%] rounded-2xl px-4 py-3 text-xs inline-block leading-relaxed break-words [overflow-wrap:anywhere] [word-break:break-word] ${
                 msg.role === "user"
                   ? "bg-teal-700 text-white dark:bg-teal-600 rounded-br-sm shadow-sm"
                   : msg.crisisTriggered
@@ -569,13 +595,13 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
                   : "bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60 text-slate-700 dark:text-slate-300 rounded-bl-sm shadow-[0_1px_2px_rgba(0,0,0,0.015)]"
               }`}
             >
-              <div className={`text-[12.5px] leading-relaxed font-sans ${msg.role === "user" ? "text-white" : "text-slate-850 dark:text-slate-200"}`}>
+              <div className={`text-[12.5px] leading-relaxed font-sans break-words [overflow-wrap:anywhere] [word-break:break-word] ${msg.role === "user" ? "text-white" : "text-slate-850 dark:text-slate-200"}`}>
                 {msg.role === "model" ? (
-                  <div className="markdown-body [&>p]:mb-2 last:[&>p]:mb-0 [&_strong]:font-bold [&_em]:italic [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
+                  <div className="markdown-body break-words [overflow-wrap:anywhere] [word-break:break-word] [&>p]:mb-2 last:[&>p]:mb-0 [&_strong]:font-bold [&_em]:italic [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
                     <Markdown rehypePlugins={[rehypeSanitize]}>{settings.profanityFilter ? filterProfanity(msg.text) : msg.text}</Markdown>
                   </div>
                 ) : (
-                  <div className="whitespace-pre-line">{settings.profanityFilter ? filterProfanity(msg.text) : msg.text}</div>
+                  <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] [word-break:break-word]">{settings.profanityFilter ? filterProfanity(msg.text) : msg.text}</div>
                 )}
               </div>
 
@@ -712,28 +738,36 @@ export default function Chatroom({ onBackToDashboard, onNavigateToHotlines }: Ch
           </div>
         ) : (
           <form onSubmit={onSubmitForm} className="flex flex-col gap-1.5">
-            <div className="flex gap-2">
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              disabled={loading}
-              placeholder="Ketik curahan hatimu di sini..."
-              maxLength={MAX_MESSAGE_LENGTH + 50}
-              className={`flex-1 bg-slate-50/60 dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900 focus:bg-white dark:focus:bg-slate-800 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 border rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 transition-all font-sans ${
-                charLimitExceeded
-                  ? "border-rose-400 dark:border-rose-600 focus:ring-rose-500"
-                  : "border-slate-200 dark:border-slate-700 focus:ring-teal-600 dark:focus:ring-teal-500"
-              }`}
-            />
-            <button
-              type="submit"
-              disabled={loading || !inputText.trim() || charLimitExceeded}
-              className="bg-teal-700 dark:bg-teal-600 hover:bg-teal-800 dark:hover:bg-teal-700 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white rounded-xl px-4 py-2 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer font-sans"
-            >
-              <Send className="w-3.5 h-3.5" />
-              Kirim
-            </button>
+            <div className="flex gap-2 items-end">
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!inputText.trim() || charLimitExceeded || loading) return;
+                    handleSendMessage(inputText);
+                  }
+                }}
+                disabled={loading}
+                placeholder="Ketik curahan hatimu di sini... (Shift + Enter untuk baris baru)"
+                maxLength={MAX_MESSAGE_LENGTH + 50}
+                className={`flex-1 resize-none overflow-y-auto min-h-[42px] max-h-32 py-2.5 px-4 bg-slate-50/60 dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900 focus:bg-white dark:focus:bg-slate-800 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 border rounded-xl focus:outline-none focus:ring-1 transition-all font-sans leading-relaxed ${
+                  charLimitExceeded
+                    ? "border-rose-400 dark:border-rose-600 focus:ring-rose-500"
+                    : "border-slate-200 dark:border-slate-700 focus:ring-teal-600 dark:focus:ring-teal-500"
+                }`}
+              />
+              <button
+                type="submit"
+                disabled={loading || !inputText.trim() || charLimitExceeded}
+                className="bg-teal-700 dark:bg-teal-600 hover:bg-teal-800 dark:hover:bg-teal-700 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white rounded-xl px-4 h-[42px] text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 cursor-pointer font-sans shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+                Kirim
+              </button>
             </div>
             {charCount > 0 && (
               <div className={`text-right text-[10px] pr-1 transition-colors ${charCountColor}`}>

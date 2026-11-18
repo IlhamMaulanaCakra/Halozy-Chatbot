@@ -44,6 +44,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* NEG-04: Word wrap and break rules for continuous unbreakable strings */
+.break-words {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.markdown-body {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* Eye-calming utility animations */
 @keyframes fadeIn {
   from { opacity: 0; }
